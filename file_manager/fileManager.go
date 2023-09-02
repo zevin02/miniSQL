@@ -29,7 +29,7 @@ func NewFileManager(dirPath string, blockSize uint64) (*FileManager, error) {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		//如果当前的目录不存在，就要先进行创建
 		fileManager.isNew = true //new说明再new的时候创建了一个新的目录
-		if err := os.Mkdir(dirPath, os.ModeDir); err != nil {
+		if err := os.Mkdir(dirPath, os.ModePerm); err != nil {
 			//创建一个新的目录
 			return nil, err
 		}
