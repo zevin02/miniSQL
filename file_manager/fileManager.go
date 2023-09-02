@@ -17,7 +17,7 @@ type FileManager struct {
 	mu        sync.RWMutex
 }
 
-//NewFileManager 初始化一个文件管理器
+//NewFileManager 初始化一个文件管理器,传入数据目录的路径,以及一个block块的大小
 func NewFileManager(dirPath string, blockSize uint64) (*FileManager, error) {
 	fileManager := &FileManager{
 		DirPath:   dirPath,
@@ -67,7 +67,7 @@ func (f *FileManager) getFile(fileName string) (*os.File, error) {
 
 //Read 根据BlockId指定的磁盘的某个区块来进行读取数据
 //把数据读取到page中
-func (f FileManager) Read(blk *BlockId, p *Page) (int, error) {
+func (f *FileManager) Read(blk *BlockId, p *Page) (int, error) {
 	//blockID指定了读取的哪个文件的哪个区块
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -78,6 +78,7 @@ func (f FileManager) Read(blk *BlockId, p *Page) (int, error) {
 	defer file.Close() //读取完就将当前文件进行关闭
 	//把数据放到page的缓冲区中,从文件在磁盘存储的某个区块开始进行读取
 	//int64(blk.Number()*f.BlockSize),二进制文件的偏移的位置，受他存储的第几个区块决定的
+	//读取出来一个block块大小的数据
 	cout, err := file.ReadAt(p.Contents(), int64(blk.Number()*f.blockSize)) //
 	if err != nil {
 		return 0, err
@@ -85,8 +86,8 @@ func (f FileManager) Read(blk *BlockId, p *Page) (int, error) {
 	return cout, nil
 }
 
-//blockId记录了要读写的文件名和位置，把page中的数据进行写入
-func (f FileManager) Write(blk *BlockId, p *Page) (int, error) {
+//Write blockId记录了要读写的文件名和位置，把page中的数据进行写入
+func (f *FileManager) Write(blk *BlockId, p *Page) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	file, err := f.getFile(blk.FileName()) //先从BlockId中获得要读取的文件名,并打开相应的文件
@@ -94,16 +95,16 @@ func (f FileManager) Write(blk *BlockId, p *Page) (int, error) {
 		return 0, err
 	}
 	defer file.Close() //读取完就将当前文件进行关闭
-	//在给定的位置进行写入
-	cout, err := file.WriteAt(p.Contents(), int64(blk.Number()*f.blockSize))
+	//在给定的位置进行写入,把缓冲区的数据写入到磁盘
+	count, err := file.WriteAt(p.Contents(), int64(blk.Number()*f.blockSize))
 	if err != nil {
 		return 0, err
 	}
-	return cout, nil
+	return count, nil
 }
 
-//size 返回文件的大小(占用了多少个区块数量)
-func (f FileManager) Size(fileName string) (uint64, error) {
+//Size 返回文件的大小(占用了多少个区块数量)
+func (f *FileManager) Size(fileName string) (uint64, error) {
 	file, err := f.getFile(fileName)
 	if err != nil {
 		return 0, err
@@ -141,6 +142,6 @@ func (f *FileManager) IsNew() bool {
 	return f.isNew
 }
 
-func (f FileManager) BlockSize() uint64 {
+func (f *FileManager) BlockSize() uint64 {
 	return f.blockSize
 }
