@@ -80,14 +80,14 @@ func (p *Page) SetString(offset uint64, s string) {
 	p.SetBytes(offset, strBytes) //先获得字节数组
 }
 
-//MaxLengthForString 返回输入字符串的长度
+//MaxLengthForString 返回输入字符串的长度+8（用来记录字符串的长度）
 func (p *Page) MaxLengthForString(s string) uint64 {
 	//hello,世界  ---len=13
 	uint64Length := 8
 	return uint64(uint64Length + len(s)) //8字节+字符占用的长度=编码时用到的总共的字节数
 }
 
-//将buffer中的数据全部返回
+//Contents 将buffer中的数据全部返回
 func (p *Page) Contents() []byte {
 	return p.buffer
 }
