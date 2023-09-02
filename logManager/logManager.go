@@ -83,6 +83,7 @@ func (l *LogManager) FlushByLSN(lsn uint64) error {
 	return nil
 }
 
+//Flush 将缓冲区中的数据刷新到磁盘中
 func (l *LogManager) Flush() error {
 	//把给定缓冲区的数据写入到磁盘中
 	_, err := l.fileManager.Write(l.currentBlk, l.logPage)
@@ -120,4 +121,10 @@ func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 	//因为我们成功的写入了一个新的日志，所以把成功写入的日志号+1
 	l.lastestLsn += 1
 	return l.lastestLsn, nil
+}
+
+//获得日志文件的迭代器，进行遍历日志文件的内容
+func (l LogManager) Iterator() *LogIterator {
+	l.Flush() //先将缓冲区中的数据刷新到磁盘中
+	return NewLogIterator(l.fileManager, l.currentBlk)
 }
