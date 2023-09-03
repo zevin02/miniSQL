@@ -32,14 +32,14 @@ func (p *Page) GetInt(offset uint64) uint64 {
 	return num
 }
 
-//将一个64位数编码成一个字节数组
+//Uint64ToByteArray 将一个64位数编码成一个字节数组
 func Uint64ToByteArray(val uint64) []byte {
 	b := make([]byte, 8)                  //开辟一个8字节大小的空间出来
 	binary.LittleEndian.PutUint64(b, val) //把数据进行编码写入到b缓冲区中
 	return b
 }
 
-//设置page中的缓冲区
+//SetInt 设置page中的缓冲区
 func (p *Page) SetInt(offset, val uint64) {
 	b := Uint64ToByteArray(val) //把val进行编码缓存到b中
 	copy(p.buffer[offset:], b)  //把编码好的数据缓存到buffer中
