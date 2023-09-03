@@ -14,13 +14,13 @@ const (
 
 //LogManager 日志管理器
 type LogManager struct {
-	fileManager  *fm.FileManager //文件管理器
-	logFile      string          //日志文件的名称
-	logPage      *fm.Page        //存储日志的缓冲区,固定就只有一个缓冲块，不断的重复利用,(当前缓冲区的头8字节存储下一次开始写入的位置的末尾位置)
-	currentBlk   *fm.BlockId     //日志当前写入(正在处理)的区块号
-	lastestLsn   uint64          //当前最新日志的编号  log Sequence Number(还没有刷新的磁盘中)
-	lastSavedLsg uint64          //上一次(刷新)写入磁盘的日志编号
-	mu           sync.RWMutex
+	fileManager       *fm.FileManager //文件管理器,用来管理日志文件的读写
+	logFile           string          //日志文件的名称
+	logPage           *fm.Page        //存储日志的缓冲区,固定就只有一个缓冲块，不断的重复利用,(当前缓冲区的头8字节存储下一次开始写入的位置的末尾位置)
+	currentBlk        *fm.BlockId     //日志当前写入(正在处理)的区块号
+	lastestLsn        uint64          //当前最新日志的编号  log Sequence Number(还没有刷新的磁盘中)
+	lastSaved2DiskLsn uint64          //上一次(刷新)写入磁盘的日志编号
+	mu                sync.RWMutex
 }
 
 //appendNewBlock 创建一个新的Block来方便后续的写入日志
@@ -41,11 +41,11 @@ func (l *LogManager) appendNewBlock() (*fm.BlockId, error) {
 
 func NewLogManager(fileManager *fm.FileManager, logFile string) (*LogManager, error) {
 	logMgr := LogManager{
-		fileManager:  fileManager,
-		logFile:      logFile,
-		logPage:      fm.NewPageBySize(fileManager.BlockSize()), //开辟一个新的缓冲区
-		lastSavedLsg: 0,                                         //当前还没有写入日志，所以就是0
-		lastestLsn:   0,                                         //最新添加的日志号也是0
+		fileManager:       fileManager,
+		logFile:           logFile,
+		logPage:           fm.NewPageBySize(fileManager.BlockSize()), //开辟一个新的缓冲区
+		lastSaved2DiskLsn: 0,                                         //当前还没有写入日志，所以就是0
+		lastestLsn:        0,                                         //最新添加的日志号也是0
 	}
 	logSize, err := fileManager.Size(logFile) //获得当前的日志文件的ID（从0开始的下标）
 	if err != nil {
@@ -71,7 +71,7 @@ func (l *LogManager) FlushByLSN(lsn uint64) error {
 	//把给定编号及其之前的日志写入到磁盘
 	//当我们写入给定编号的日志的时候，接口会把同当前日志处与同一区块的日志写入到磁盘中，假设当前的日志是65,
 	//如果66,67,68也处与同一个区块中，那么他们也会写入到磁盘中
-	if lsn > l.lastSavedLsg {
+	if lsn > l.lastSaved2DiskLsn {
 		//当前的日志编号，比上一次写入到缓冲区中的日志编号要大，就需要进行刷新
 		err := l.Flush()
 		if err != nil {
@@ -97,13 +97,13 @@ func (l *LogManager) Flush() error {
 func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	//先读取缓冲区的头8个字节，获取可以写入的偏移
-	boundary := l.logPage.GetInt(0) //得到可以写入的偏移
+	//先读取缓冲区的头8个字节(在创建一个新的blockid的时候，就会在page的头部写入下一次数据的截至位置)，获取可以写入的偏移
+	boundary := l.logPage.GetInt(0) //得到可以此次可写入的偏移
 	logRecordSize := uint64(len(logRecord))
-	bytesNeed := logRecordSize + UINT64_LEN //这个是实际需要写入到缓冲区中占用的大小
+	bytesNeed := logRecordSize + UINT64_LEN //这个是实际需要写入到缓冲区中占用的大小,+8是代表这个数据的长度
 	if int(boundary-bytesNeed) < int(UINT64_LEN) {
 		//因为前8个字节是存储下一次要开始的边界
-		//所以当前没有足够的空间了,先将当前的缓冲区中存储的数据写入到磁盘中，再分配新的区块空间
+		//所以当前缓冲区已经被写满了，没有足够的空间了,就可以将当前的缓冲区中存储的数据写入到磁盘中，再分配新的区块空间，继续写入
 		err := l.Flush()
 		if err != nil {
 			return l.lastestLsn, err
@@ -115,9 +115,9 @@ func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 		}
 		boundary = l.logPage.GetInt(0) //更新获得当前可以写入的最末尾的偏移
 	}
-	recordPos := boundary - bytesNeed //这样就到了头部了,得到了写入的偏移
-	l.logPage.SetBytes(recordPos, logRecord)
-	l.logPage.SetInt(0, recordPos) //重新设置可以写入的偏移
+	recordPos := boundary - bytesNeed        //这样就到了头部了,得到了可以写入的起始偏移
+	l.logPage.SetBytes(recordPos, logRecord) //往日志的缓冲区中写入当前的日志信息
+	l.logPage.SetInt(0, recordPos)           //重新设置可以写入的偏移,供下一次写入的时候读取
 	//因为我们成功的写入了一个新的日志，所以把成功写入的日志号+1
 	l.lastestLsn += 1
 	return l.lastestLsn, nil
@@ -125,6 +125,6 @@ func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 
 //获得日志文件的迭代器，进行遍历日志文件的内容
 func (l LogManager) Iterator() *LogIterator {
-	l.Flush() //先将缓冲区中的数据刷新到磁盘中
-	return NewLogIterator(l.fileManager, l.currentBlk)
+	l.Flush()                                          //先将缓冲区中的数据刷新到磁盘中
+	return NewLogIterator(l.fileManager, l.currentBlk) //从最后一个数据块开始读取，往前遍历
 }

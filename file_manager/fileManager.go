@@ -118,7 +118,7 @@ func (f *FileManager) Size(fileName string) (uint64, error) {
 	return uint64(fi.Size()) / f.blockSize, nil
 }
 
-//Append 给当前的文件再增加一个区块(扩大文件的大小)
+//Append 给当前的文件再增加一个区块(扩大文件的大小)(当前文件写满了才会继续调用这个append进行写入)
 func (f *FileManager) Append(fileName string) (BlockId, error) {
 	newBlockNum, err := f.Size(fileName) //获得当前的文件的区块id
 	if err != nil {

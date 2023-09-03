@@ -11,11 +11,11 @@ import (
 */
 
 type LogIterator struct {
-	fileManager *fm.FileManager
-	blk         *fm.BlockId //当前数据所在的区块
-	p           *fm.Page    //数据的缓冲块
-	currentPos  uint64      //当前遍历的偏移
-	boundary    uint64
+	fileManager *fm.FileManager //文件管理器读取数据管理
+	blk         *fm.BlockId     //指定当前数据所在的区块
+	p           *fm.Page        //数据的缓冲块
+	currentPos  uint64          //当前遍历的偏移
+	boundary    uint64          //数据的下界
 }
 
 func NewLogIterator(file *fm.FileManager, blk *fm.BlockId) *LogIterator {
@@ -32,7 +32,7 @@ func NewLogIterator(file *fm.FileManager, blk *fm.BlockId) *LogIterator {
 	return it
 }
 
-//读取磁盘中的数据到缓冲区中
+//moveToBlock 读取磁盘中的一个数据块到缓冲区中
 func (it *LogIterator) moveToBlock(blk *fm.BlockId) error {
 	//将对应区块的数据从磁盘读取到内存中
 	_, err := it.fileManager.Read(blk, it.p)
