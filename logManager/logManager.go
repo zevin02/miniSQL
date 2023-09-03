@@ -53,6 +53,7 @@ func (l *LogManager) appendNewBlock() (*fm.BlockId, error) {
 	return &blk, nil
 }
 
+//NewLogManager 当前日志管理器在打开的时候，如果没有文件中没有数据的话就创建了一个区块并写入了一个区块大小的数据，如果有数据了，就继续使用最新的区块，直到填满数据
 func NewLogManager(fileManager *fm.FileManager, logFile string) (*LogManager, error) {
 	logMgr := LogManager{
 		fileManager:       fileManager,
@@ -107,7 +108,7 @@ func (l *LogManager) Flush() error {
 	return nil
 }
 
-//Append 写入一条新的数据到缓冲区中，并返回当前最新的日志的编号
+//Append 写入一条新的数据到缓冲区中(还没有刷新到磁盘中)，并返回当前最新的日志的编号
 func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
