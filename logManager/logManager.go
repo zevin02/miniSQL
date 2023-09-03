@@ -73,9 +73,9 @@ func NewLogManager(fileManager *fm.FileManager, logFile string) (*LogManager, er
 		}
 		logMgr.currentBlk = blk
 	} else {
-		//文件已经存在，就需要先把末尾的日志内容先读取到内存中，如果当前对应的区块还有空间，新的日志就得继续写入当前的区块
+		//文件已经存在，就需要先把末尾的日志内容先读取到内存中，如果当前对应的区块还有空间，新的日志就得继续写入当前的区块,当前size=400,所以我们就需要打开0号块，在有数据增加进来的话，才会新开辟一个数据块
 		logMgr.currentBlk = fm.NewBlockId(logMgr.logFile, logSize-1)
-		logMgr.fileManager.Read(logMgr.currentBlk, logMgr.logPage)
+		logMgr.fileManager.Read(logMgr.currentBlk, logMgr.logPage) //把数据读取上来
 	}
 	return &logMgr, nil
 }

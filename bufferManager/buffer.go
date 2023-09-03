@@ -16,8 +16,8 @@ type Buffer struct {
 	contents *fm.Page    //缓存页面,装载BlockID指向的位置
 	blk      *fm.BlockId //区块的描述
 	pins     uint32      //当前buffer的引用计数,=0的时候就可以释放了
-	txnum    int32       //事务号
-	lsn      uint64      //日志号
+	txnum    int32       //当前buffer目前在管理事务号
+	lsn      uint64      //当前buffer目前正在管理的日志号
 }
 
 func NewBuffer(fileManager *fm.FileManager, logManager *lm.LogManager) *Buffer {
@@ -26,7 +26,7 @@ func NewBuffer(fileManager *fm.FileManager, logManager *lm.LogManager) *Buffer {
 		logManager:  logManager,
 		txnum:       -1, //当前暂时没用到
 		lsn:         0,
-		contents:    fm.NewPageBySize(fileManager.BlockSize()),
+		contents:    fm.NewPageBySize(fileManager.BlockSize()), //开辟一个缓存块
 	}
 }
 
@@ -43,7 +43,7 @@ func (b *Buffer) Block() *fm.BlockId {
 //SetModify 如果上层组建引用buffer的人，修改了buffer中的数据，必须调用这个接口，告诉我们这个被修改了,这样就可以把数据写回到磁盘中
 func (b *Buffer) SetModify(txnum int32, lsn uint64) {
 	//调用这个接口的时候，我们就知道数据被修改了，如果只是读取数据的话，就不需要调用这个接口
-	b.txnum = txnum //jilu
+	b.txnum = txnum //更新当前的事务
 	if lsn > 0 {
 		b.lsn = lsn //更新日志号
 	}
@@ -62,18 +62,18 @@ func (b *Buffer) ModifyingTx() int32 {
 
 //Assign2Block 将指定BlockId数据从磁盘读取到缓存中
 func (b *Buffer) Assign2Block(blockId *fm.BlockId) {
-	b.Flush() //先将当前的缓存数据写入到磁盘中，避免数据的丢失
-	b.blk = blockId
+	b.Flush()                               //先将当前的缓存数据写入到磁盘中，避免数据的丢失
+	b.blk = blockId                         //更新当前缓存指向的block块位置
 	b.fileManager.Read(b.blk, b.Contents()) //将blk的数据读取到Page缓存中
-	b.pins = 0                              //当前是新读的一个page页面，引用计数为0
+	b.pins = 0                              //当前是新读的一个page页面，所以引用计数为0
 }
 
 //Flush 把数据刷新到磁盘中
 func (b *Buffer) Flush() {
-	if b.txnum > 0 {
+	if b.txnum > 0 { //当前的事务号！=0,说明当前就有新的数据增加进来
 		b.logManager.FlushByLSN(b.lsn)           //把小于当前编号的日志都刷新到磁盘中,为以后系统的崩溃恢复提供支持
 		b.fileManager.Write(b.blk, b.Contents()) //将已经修改好的数据写回到磁盘中
-		b.txnum = -1                             //表示当前没有被修改过
+		b.txnum = -1                             //表示当前没有被修改过,后续可以重新使用这个buff来进行处理
 	}
 }
 

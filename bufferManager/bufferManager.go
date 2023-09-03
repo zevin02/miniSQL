@@ -52,7 +52,7 @@ func (b *BufferManager) FlushAll(txnum int32) {
 	}
 }
 
-//Pin 将给定磁盘文件的区块数据分配给缓存页面
+//Pin 将给定磁盘文件的区块数据分配给缓存页面,相当于内存分配
 func (b *BufferManager) Pin(blk *fm.BlockId) (*Buffer, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -81,7 +81,7 @@ func (b *BufferManager) Unpin(buffer *Buffer) {
 	buffer.Unpin() //把他的引用计数减1
 	//如果没有再有组建引用的话，就需要将当前的缓存写回到磁盘中
 	if !buffer.IsPinned() {
-		//当前缓存页面已经没有再被使用了，
+		//如果当前buffer的引用计数=0,就可以继续进行分配给其他人使用了
 		b.numAvailable++ //可用的buffer数+1
 		//NoTifyALL 唤醒所有在尝试pin页面的组建，唤醒来调用新的page,并发管理器的内容
 	}
@@ -100,20 +100,20 @@ func (b *BufferManager) waitingTooLong(start time.Time) bool {
 func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 	buff := b.findExistingBuffer(blk) //在buffer管理器中检查给定区块是否已经被读取到缓冲区中了
 	if buff == nil {
-		//当前区块没有被读取还没有被读取到，那么就需要去将当前区块从磁盘中读取上来
-		buff = b.chooseUnpinBuffer() //查看是否还有可用的缓存页面，有的话，就需要将给定磁盘数据写入缓存中
+		//当前区块没有被读取到，那么就需要去将当前区块从磁盘中读取上来
+		buff = b.chooseUnpinBuffer() //查看是否还有可用的缓存页面，有的话， 就的可以得到当前的buffer块，同时需要将给定磁盘数据写入缓存中,
 		if buff == nil {
-			//没有可用的缓存页面
+			//没有找到可用的缓存页面
 			return nil
 		}
-		//分配完缓存页面之后，将数据读取到缓存中
+		//分配完缓存页面之后，将blk指向区块的数据读取到缓存中进行管理,如果当前区块之前有缓存数据的话，就需要将该区块缓存的数据给刷新到磁盘中
 		buff.Assign2Block(blk)
 	}
 	if buff.IsPinned() == false {
-		//如果当前的buffer
+		//如果当前的buffer=0,说明还没有人使用，同时申请成功了
 		b.numAvailable--
 	}
-	buff.Pin()
+	buff.Pin() //增加引用计数
 	return buff
 }
 
@@ -130,7 +130,7 @@ func (b *BufferManager) findExistingBuffer(blk *fm.BlockId) *Buffer {
 	return nil
 }
 
-//chooseUnpinBuffer 在bufferpool中查找可用的buffer
+//chooseUnpinBuffer 在bufferpool中查找可用的buffer,引用计数=0的页面
 func (b *BufferManager) chooseUnpinBuffer() *Buffer {
 	for _, buffer := range b.bufferPool {
 		if !buffer.IsPinned() {
