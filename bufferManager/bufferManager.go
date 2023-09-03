@@ -59,6 +59,7 @@ func (b *BufferManager) Pin(blk *fm.BlockId) (*Buffer, error) {
 	start := time.Now()   //获得当前的时间
 	buff := b.tryPin(blk) //尝试分配缓存页面
 	for buff == nil && b.waitingTooLong(start) == false {
+		//进来的话，就说明没有等待过长的时间
 		//如果没有分配到缓存页面，那么就等待一段时间看看有没有可以使用的缓存页面
 		time.Sleep(MAX_TIME * time.Second) //等待一段时间
 		//再次尝试获得数据
@@ -83,10 +84,60 @@ func (b *BufferManager) Unpin(buffer *Buffer) {
 		//当前缓存页面已经没有再被使用了，
 		b.numAvailable++ //可用的buffer数+1
 		//NoTifyALL 唤醒所有在尝试pin页面的组建，唤醒来调用新的page,并发管理器的内容
-
 	}
 }
 
-func (b *BufferManager) waitingTooLong(start time.Time) {
+//waitingTooLong 查看是否等待了过长的时间
+func (b *BufferManager) waitingTooLong(start time.Time) bool {
+	elapesed := time.Since(start).Seconds() //查看至今过了多长时间
+	if elapesed >= MAX_TIME {
+		return true
+	}
+	return false
+}
 
+//tryPin 尝试去获得一块buffer的数据
+func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
+	buff := b.findExistingBuffer(blk) //在buffer管理器中检查给定区块是否已经被读取到缓冲区中了
+	if buff == nil {
+		//当前区块没有被读取还没有被读取到，那么就需要去将当前区块从磁盘中读取上来
+		buff = b.chooseUnpinBuffer() //查看是否还有可用的缓存页面，有的话，就需要将给定磁盘数据写入缓存中
+		if buff == nil {
+			//没有可用的缓存页面
+			return nil
+		}
+		//分配完缓存页面之后，将数据读取到缓存中
+		buff.Assign2Block(blk)
+	}
+	if buff.IsPinned() == false {
+		//如果当前的buffer
+		b.numAvailable--
+	}
+	buff.Pin()
+	return buff
+}
+
+//findExistingBuffer 检查需要的blockid是否已经存在了
+func (b *BufferManager) findExistingBuffer(blk *fm.BlockId) *Buffer {
+	for _, buffer := range b.bufferPool {
+		block := buffer.Block() //获得当前block的信息
+		if block != nil && block.Equal(blk) {
+			//如果当前block不为空，同时这个block和要查找的block一致，说明这个block已经存在了，就不需要再创建新block
+			return buffer
+		}
+	}
+	//当前blk没有被找到
+	return nil
+}
+
+//chooseUnpinBuffer 在bufferpool中查找可用的buffer
+func (b *BufferManager) chooseUnpinBuffer() *Buffer {
+	for _, buffer := range b.bufferPool {
+		if !buffer.IsPinned() {
+			//如果发现了某个还没有被使用的buffer，就可以被返回供使用
+			return buffer
+		}
+	}
+	//说明全部的buffer都被使用了
+	return nil
 }

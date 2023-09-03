@@ -49,7 +49,8 @@ func (b *Buffer) SetModify(txnum int32, lsn uint64) {
 	}
 }
 
-//IsPinned 判断当前的缓存数据是否正在被使用
+//IsPinned 判断当前的缓存数据是否正在被使用，如果为true说明当前buffer还在被使用
+//如果为false，说明当前的bufer已经没有人使用了
 func (b *Buffer) IsPinned() bool {
 	return b.pins > 0
 }
@@ -60,12 +61,11 @@ func (b *Buffer) ModifyingTx() int32 {
 }
 
 //Assign2Block 将指定BlockId数据从磁盘读取到缓存中
-func (b *Buffer) Assign2Block(blockId *fm.BlockId) int32 {
+func (b *Buffer) Assign2Block(blockId *fm.BlockId) {
 	b.Flush() //先将当前的缓存数据写入到磁盘中，避免数据的丢失
 	b.blk = blockId
 	b.fileManager.Read(b.blk, b.Contents()) //将blk的数据读取到Page缓存中
 	b.pins = 0                              //当前是新读的一个page页面，引用计数为0
-
 }
 
 //Flush 把数据刷新到磁盘中
@@ -77,10 +77,12 @@ func (b *Buffer) Flush() {
 	}
 }
 
+//Pin 增加引用计数
 func (b *Buffer) Pin() {
 	b.pins++
 }
 
+//Unpin 减小引用计数
 func (b *Buffer) Unpin() {
 	b.pins--
 }
