@@ -54,12 +54,12 @@ func (b *Buffer) IsPinned() bool {
 	return b.pins > 0
 }
 
-//ModifyingTx 返回当前正在修改的事务号
+//ModifyingTx 返回当前正在修改的事务号,当前正在执行的是哪个事务号
 func (b *Buffer) ModifyingTx() int32 {
 	return b.txnum
 }
 
-//将指定BlockId数据从磁盘读取到缓存中
+//Assign2Block 将指定BlockId数据从磁盘读取到缓存中
 func (b *Buffer) Assign2Block(blockId *fm.BlockId) int32 {
 	b.Flush() //先将当前的缓存数据写入到磁盘中，避免数据的丢失
 	b.blk = blockId
@@ -71,7 +71,7 @@ func (b *Buffer) Assign2Block(blockId *fm.BlockId) int32 {
 //Flush 把数据刷新到磁盘中
 func (b *Buffer) Flush() {
 	if b.txnum > 0 {
-		b.logManager.FlushByLSN(b.lsn)           //把小于当前编号的日志都刷新到磁盘中
+		b.logManager.FlushByLSN(b.lsn)           //把小于当前编号的日志都刷新到磁盘中,为以后系统的崩溃恢复提供支持
 		b.fileManager.Write(b.blk, b.Contents()) //将已经修改好的数据写回到磁盘中
 		b.txnum = -1                             //表示当前没有被修改过
 	}

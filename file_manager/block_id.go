@@ -5,13 +5,13 @@ import (
 	"fmt"
 )
 
-//BlockId 用来描述磁盘上一个二进制文件里面的一块区域的数据
+//BlockId 区块的抽象，对应二进制文件某个位置的一块连续内存的记录
 type BlockId struct {
 	fileName string //对应磁盘的二进制文件
 	blkNum   uint64 //二进制文件中区块的标号
 }
 
-//构造函数，构造一个BlockId对象
+//NewBlockId 构造函数，构造一个BlockId对象
 func NewBlockId(fileName string, blkNum uint64) *BlockId {
 	return &BlockId{
 		fileName: fileName,

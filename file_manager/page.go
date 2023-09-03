@@ -4,11 +4,9 @@ import (
 	"encoding/binary"
 )
 
-//page对象是系统中的一块内存，将BlockId对应的数据，映射到内存中
-
+//Page 对象是系统中的一块内存，将BlockId对应的数据，映射到内存中
 type Page struct {
 	buffer []byte //内存中的一块数据,和BlockId上对应的数据是有映射关系的
-
 }
 
 //NewPageBySize 构造Page对象
