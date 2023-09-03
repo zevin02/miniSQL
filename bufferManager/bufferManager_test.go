@@ -49,4 +49,8 @@ func TestBufferManager(t *testing.T) {
 	fileManager.Read(b1, page)
 	n1 := page.GetInt(80)
 	assert.Equal(t, n1, n+1)
+	_, err = bm.Pin(fm.NewBlockId("testfile", 5)) //缓存页面已经使用完了，这里分配应该返回错误
+	assert.Nil(t, err)
+	_, err = bm.Pin(fm.NewBlockId("testfile", 6)) //缓存页面已经使用完了，这里分配应该返回错误
+	assert.Nil(t, err)
 }

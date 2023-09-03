@@ -8,17 +8,29 @@ import (
 	"time"
 )
 
+/*
+	数据库系统要处理高吞吐量的数据，数据不能全部存储在内存中，但是也不能频繁访问磁盘，所以我们需要权衡数据在内存和磁盘中的存储
+	设计一个缓存管理器预先分配一定的内存页，形成一个内存池，当其他组建需要读写数据的时候，先通过缓存管理器获得内存页，
+
+	缓存管理器并不会在乎数据的一致性，多个客户端在使用同一个内存页面的时候，可以随意的对数据进行读写，(这个需要我们后续的并发管理器来进行处理)
+
+	当前页面写入磁盘：情况一：当前页面读取其他区块的数据
+				   情况二：相应的写接口被调用
+*/
+
 //如果有3个buffer，4个请求，那么前3个请求得到了，第4个请求就需要进行等待，最多等待3s
 const (
 	MAX_TIME = 3 //分配页面的时候最多等待的时间
 )
 
+//BufferManager 缓存管理器
 type BufferManager struct {
 	bufferPool   []*Buffer //缓存池
 	numAvailable uint32    //缓存池中有多少个页面可以使用
 	mu           sync.RWMutex
 }
 
+//NewBufferManager 开辟一个缓存管理器对象
 func NewBufferManager(fileManager *fm.FileManager, logManager *lm.LogManager, numBuffer uint32) *BufferManager {
 	bufferManager := &BufferManager{
 		numAvailable: numBuffer, //有多少个页面可以使用
@@ -52,7 +64,16 @@ func (b *BufferManager) FlushAll(txnum int32) {
 	}
 }
 
-//Pin 将给定磁盘文件的区块数据分配给缓存页面,相当于内存分配
+//Pin 将给定磁盘文件的区块数据分配给缓存页面,相当于内存分配，new
+/*
+	情况一：要读取的数据已经被缓存在某个页面中了，这样缓存器就设置这个页面pin，增加引用计数
+	情况二：数据还没有被读取进缓存中，缓存中还有空闲的页面可以使用，就可以直接获得该页面
+	情况三：数据还没有读入内存中，也没有空闲页面使用，就需要等待
+
+	使用超时机制来解决死锁问题，如果长时间没有可以用的页面，就需要返回错误
+
+*/
+
 func (b *BufferManager) Pin(blk *fm.BlockId) (*Buffer, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -132,6 +153,7 @@ func (b *BufferManager) findExistingBuffer(blk *fm.BlockId) *Buffer {
 
 //chooseUnpinBuffer 在bufferpool中查找可用的buffer,引用计数=0的页面
 func (b *BufferManager) chooseUnpinBuffer() *Buffer {
+	//LRU置换算法
 	for _, buffer := range b.bufferPool {
 		if !buffer.IsPinned() {
 			//如果发现了某个还没有被使用的buffer，就可以被返回供使用
