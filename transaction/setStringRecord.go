@@ -52,11 +52,11 @@ func (s *SetStringRecord) TxNumber() uint64 {
 	return s.txNum
 }
 
-//Undo 把当前的事务进行恢复,回滚当前的操作
+//Undo 把当前的事务进行恢复,回滚当前的操作,实际上就是把当前日志的数据写入到当前的事务中
 func (s *SetStringRecord) Undo(tx TransactionInterface) {
 	tx.Pin(s.blk)
 	tx.SetString(s.blk, s.offset, s.val, false) //将原来字符串写回去,false说明当前操作不需要增加一个新的记录,往缓存中写入
-	tx.UnPin(s.blk)
+	tx.Unpin(s.blk)
 }
 
 //ToString 返回日志的文本形式
@@ -84,5 +84,5 @@ func WriteSetStringLog(log *lm.LogManager, txNum uint64, blk *fm.BlockId, offset
 	p.SetInt(bpos, int64(blk.Number())) //写入区块编号
 	p.SetInt(ops, int64(offset))        //写入偏移量
 	p.SetString(vpos, val)              //写入数据
-	return log.Append(rec)
+	return log.Append(rec)              //追加到日志中
 }

@@ -30,7 +30,7 @@ type CommitRecord struct {
 
 //NewCommitRecord 开头的8字节是对应的日志的类型，接下来的8字节对应事务序列号
 //直接从缓存页面中获得事务号
-func NewCommitRecord(page *fm.Page, logManager *lm.LogManager) *CommitRecord {
+func NewCommitRecord(page *fm.Page) *CommitRecord {
 	txNum := page.GetInt(UIN64_LENGTH) //从缓存中读取事务序列号,因为前8字节是当前日志的类型
 	return &CommitRecord{
 		txNum: uint64(txNum),
@@ -48,7 +48,7 @@ func (c *CommitRecord) TxNumber() uint64 {
 }
 
 //Undo 回滚当前的操作
-func (c *CommitRecord) Undo() {
+func (c *CommitRecord) Undo(TransactionInterface) {
 	//Commit没什么好回滚的操作
 }
 

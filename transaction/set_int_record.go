@@ -84,5 +84,5 @@ func WriteSetIntLog(log *lm.LogManager, txNum uint64, blk *fm.BlockId, offset ui
 	p.SetInt(bpos, int64(blk.Number())) //写入区块编号
 	p.SetInt(ops, int64(offset))        //写入偏移量
 	p.SetInt(vpos, int64(val))          //写入数据
-	return log.Append(rec)
+	return log.Append(rec)              //每次写入都会增加日志号
 }

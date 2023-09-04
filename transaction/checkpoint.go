@@ -12,7 +12,7 @@ import (
 
 
 */
-
+//CheckPointRecord 该日志对象不需要有任何数据，只要写入一个checkpoint日志即可
 type CheckPointRecord struct {
 }
 
@@ -28,7 +28,7 @@ func (c *CheckPointRecord) TxNumber() uint64 {
 	return math.MaxUint64 //它没有对应的交易号
 }
 
-func (c *CheckPointRecord) Undo() {
+func (c *CheckPointRecord) Undo(TransactionInterface) {
 	//checkpoint没有什么可回滚的
 }
 

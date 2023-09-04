@@ -31,8 +31,9 @@ func (s *StartRecord) TxNumber() uint64 {
 	return s.txNum
 }
 
-func (s *StartRecord) Undo() {
+func (s *StartRecord) Undo(TransactionInterface) {
 	//Start没什么好undo的
+	return
 }
 
 //ToString 将当前的日志按照文本的形式返回

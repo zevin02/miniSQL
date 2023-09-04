@@ -97,6 +97,7 @@ func (l *LogManager) FlushByLSN(lsn uint64) error {
 		}
 		//更新写入的编号
 		l.lastestLsn = lsn
+		l.lastSaved2DiskLsn = l.lastSaved2DiskLsn //同样更新上次刷新到磁盘的日志号
 	}
 	return nil
 }
@@ -141,7 +142,7 @@ func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 	return l.lastestLsn, nil
 }
 
-//获得日志文件的迭代器，进行遍历日志文件的内容
+//Iterator 获得日志文件的迭代器，进行遍历日志文件的内容
 func (l *LogManager) Iterator() *LogIterator {
 	l.Flush()                                          //获得迭代器的时候先将缓冲区中的数据刷新到磁盘中,保证数据完全落盘
 	return NewLogIterator(l.fileManager, l.currentBlk) //从最后一个数据块开始读取，往前遍历

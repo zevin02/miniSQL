@@ -37,8 +37,9 @@ func (r *RollBackRecord) TxNumber() uint64 {
 	return r.tx_num
 }
 
-func (r *RollBackRecord) Undo() {
+func (r *RollBackRecord) Undo(tx TransactionInterface) {
 	//它没有回滚操作
+	return
 }
 
 func (r *RollBackRecord) ToString() string {
@@ -49,7 +50,7 @@ func WriteRollBackLog(lgmr *lg.LogManager, tx_num uint64) (uint64, error) {
 	rec := make([]byte, 2*UIN64_LENGTH)
 	p := fm.NewPageByBytes(rec)
 	p.SetInt(0, int64(ROLLBACK))
-	p.SetInt(UIN64_LENGTH, tx_num)
+	p.SetInt(UIN64_LENGTH, int64(tx_num))
 
 	return lgmr.Append(rec)
 }

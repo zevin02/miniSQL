@@ -8,12 +8,13 @@ import (
 
 //RecoveryManager 该对象的产生一定伴随这一个事务的出现,同时也是由这个对象来产生事务中的日志信息
 type RecoveryManager struct {
-	logManager    *lm.LogManager
+	logManager    *lm.LogManager //当前日志管理器中记录了事务中的各种日志
 	bufferManager *bm.BufferManager
 	tx            *Transaction //事务对象
 	txNum         int32        //当前事务对应的事务序列号
 }
 
+//NewRecoverManager 这个日志是全局日志,不只管理一个事务，二是管理一群事务的日志
 func NewRecoverManager(tx *Transaction, TxNum int32, logManager *lm.LogManager, bufferManager *bm.BufferManager) *RecoveryManager {
 	rm := &RecoveryManager{
 		logManager:    logManager,
@@ -39,5 +40,112 @@ func (r *RecoveryManager) Commit() error {
 		return err
 	}
 	r.logManager.FlushByLSN(lsn) //把比当前日志小的数据都刷新到磁盘中
+	return nil
+}
 
+//RollBack rollback是我们手动执行的，并不是系统执行的，我们由start，但是执行到一半，想要回滚当前操作
+func (r *RecoveryManager) RollBack() error {
+	r.doRollBack() //执行回滚操作
+	//数据写回到内存页中
+	r.bufferManager.FlushAll(r.txNum)                           //把当前事务号在实现之前的数据全部冲刷到磁盘上
+	lsn, err := WriteRollBackLog(r.logManager, uint64(r.txNum)) //写入日志，并获得日志号
+	if err != nil {
+		return nil
+	}
+	//把当前日志全部冲刷到磁盘中
+	if err := r.logManager.FlushByLSN(lsn); err != nil {
+		return err
+	}
+	return nil
+}
+
+//Recover 是系统执行的，发现由START，而没有找到commit，所以我们就需要执行数据的恢复,恢复到事务执行之前的状态
+func (r *RecoveryManager) Recover() error {
+	r.doRecover()                                  //同样也是执行回滚操作
+	r.bufferManager.FlushAll(r.txNum)              //同样也是要把当前事务的之前的所有数据都刷新到磁盘中
+	lsn, err := WriteCheckPointToLog(r.logManager) //放入一个checkpoint，表示当前系统执行了一次恢复操作，该行之前的记录没有用,当前写入会返回当前的日志号
+	if err != nil {
+		return err
+	}
+	//同样是要把当前日志到刷新到磁盘中
+	r.logManager.FlushByLSN(lsn)
+	return nil
+}
+
+//SetInt 写入当前的日志，并且返回当前日志对应的区块号
+func (r *RecoveryManager) SetInt(buff *bm.Buffer, offset uint64, newVal int64) (uint64, error) {
+	//先获得当前写入之前的数据
+	oldVal := buff.Contents().GetInt(offset)
+	blk := buff.Block()                                                       //获得当前buff对应的block信息
+	return WriteSetIntLog(r.logManager, uint64(r.txNum), blk, offset, oldVal) //写入修改之前的日志
+}
+
+//SetString 写入当前的日志，并且返回当前日志对应的区块号
+func (r *RecoveryManager) SetString(buff *bm.Buffer, offset uint64, newVal string) (uint64, error) {
+	//先获得当前写入之前的数据
+	oldVal := buff.Contents().GetString(offset)
+	blk := buff.Block()                                                          //获得当前buff对应的block信息
+	return WriteSetStringLog(r.logManager, uint64(r.txNum), blk, offset, oldVal) //写入修改之前的日志
+}
+
+//CreateRecord 返回一个日志类型的接口
+//传入数据的日志
+func (r *RecoveryManager) CreateRecord(bytes []byte) LogRecordInterface {
+	p := fm.NewPageByBytes(bytes) //放入缓冲区中
+	//根据当前的日志类型，创建不同的日志对象
+	switch RECORD_TYPE(p.GetInt(0)) {
+	case CHECKPOINT:
+		return NewCheckPointRecord()
+	case START:
+		return NewStartRecord(p, r.logManager)
+	case COMMIT:
+		return NewCommitRecord(p)
+	case ROLLBACK:
+		return NewRollBackRecord(p)
+	case SETINT:
+		return NewSetIntRecord(p)
+	case SETSTRING:
+		return NewSetStringRecord(p)
+	default:
+		panic("unknow log type")
+	}
+}
+
+//doRollBack 这个rollback是针对某个具体的事务去执行
+func (r *RecoveryManager) doRollBack() {
+	iter := r.logManager.Iterator() //获得日志的迭代器，日志的迭代器是从最新的数据开始进行迭代，越往后面迭代的数据越旧
+	for iter.Valid() {
+		rec := iter.Next()               //获得当前的日志二进制的数据
+		logRecord := r.CreateRecord(rec) //根据这个日志数据，创建一个日志对象
+		//必须要保障是当前事务中写入的日志
+		if logRecord.TxNumber() == uint64(r.txNum) {
+			//如果不是当前事务的日志
+			if logRecord.Op() == START {
+				return
+			}
+			logRecord.Undo(r.tx) //执行undo操作
+		}
+	}
+}
+
+//doRecover 执行recover操作,这个recover是针对所有的事务去执行
+func (r *RecoveryManager) doRecover() {
+	//遍历日志管理器中的日志记录，查找所有的已经commit过了的事务的日志
+	finishedTxs := make(map[uint64]bool) //set功能，集合的是所有执行过commit的操作的事务或者是执行了ROLLBACK的事务,把这些数据进行一个恢复日志的完整的数据
+	iter := r.logManager.Iterator()
+	//同样是从最新的日志开始执行
+	for iter.Valid() {
+		rec := iter.Next()
+		logRecord := r.CreateRecord(rec)
+		if logRecord.Op() == COMMIT || logRecord.Op() == ROLLBACK {
+			//记录当前有commit或者有rollback的日志
+			finishedTxs[logRecord.TxNumber()] = true
+		}
+		exitst, ok := finishedTxs[uint64(r.txNum)]
+		if !ok || !exitst {
+			//走到这里这个说明他只有start，而没有commit和rollback，有头无尾的，就需要进行一个undo
+			//把数据进行恢复
+			logRecord.Undo(r.tx)
+		}
+	}
 }

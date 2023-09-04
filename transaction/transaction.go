@@ -10,7 +10,7 @@ import (
 )
 
 var txNumMu sync.Mutex     //事务的锁
-var nextTxNumId = int32(0) //事务的序列号
+var nextTxNumId = int32(0) //事务的序列号,全局的事务，每次创建一个事务的时候，这个事务序列号就会自增
 
 //获得下一个事务的id
 func nextTxNum() int32 {
@@ -21,13 +21,13 @@ func nextTxNum() int32 {
 }
 
 type Transaction struct {
-	myBuffers      *BufferList        //管理当前被pin的buffer对象
-	logManager     *lm.LogManager     //日志管理
-	fileManager    *fm.FileManager    //文件管理
-	recoverManager *rm.RecoverManager //恢复管理器,用于事务恢复或者回滚
-	txNum          int32              //当前的事务序列号
-	bufferManager  *bm.BufferManager  //缓存管理器
-	concurrentMgr  ConcurrentManager  //管理并发请求
+	myBuffers      *BufferList       //管理当前被pin的buffer对象
+	logManager     *lm.LogManager    //日志管理,souna
+	fileManager    *fm.FileManager   //文件管理
+	recoverManager *RecoveryManager  //恢复管理器,用于事务恢复或者回滚
+	txNum          int32             //当前的事务序列号
+	bufferManager  *bm.BufferManager //缓存管理器
+	//concurrentMgr  ConcurrentManager //管理并发请求
 }
 
 //NewTransaction 构造一个事务对象
@@ -73,7 +73,7 @@ func (t *Transaction) Recover() {
 }
 
 func (t *Transaction) Pin(blk *fm.BlockId) {
-	t.myBuffers.Pin(blk) //调用pin进行管理
+	t.myBuffers.Pin(blk) //调用pin进行管理,
 }
 
 func (t *Transaction) Unpin(blk *fm.BlockId) {
@@ -101,6 +101,7 @@ func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) (int64, error) {
 
 }
 
+//GetString 从事务中的某个区块的文件中读取数据
 func (t *Transaction) GetString(blk *fm.BlockId, offset uint64) (string, error) {
 	//调用同步管理器加s锁
 	buff := t.myBuffers.getBuf(blk)
@@ -137,7 +138,8 @@ func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog 
 	return nil
 }
 
-//okToLog=true会生成记录，为false就不会生成对应的记录
+//SetString okToLog=true会生成记录，为false就不会生成对应的记录
+//undo的时候也会调用这个Setstring操作，把数据写入到事务中
 func (t *Transaction) SetString(blk *fm.BlockId, offset uint64, val string, okToLog bool) error {
 	//调用同步管理器的x锁
 	//t.xlock()
