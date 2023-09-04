@@ -33,6 +33,7 @@ const (
 
 const (
 	UIN64_LENGTH = 8
+	END_OF_FILE  = -1
 )
 
 type LogRecordInterface interface {
