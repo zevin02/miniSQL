@@ -6,6 +6,13 @@ import (
 	lg "miniSQL/logManager"
 )
 
+/*
+	checkpoint表示在此之前的数据都已经成功写入到磁盘了，系统恢复的时候，就会从最近的checkpoint开始读取日志数据并恢复
+
+
+
+*/
+
 type CheckPointRecord struct {
 }
 

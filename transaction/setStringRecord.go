@@ -8,16 +8,16 @@ import (
 
 //<SETSTRING, 2, testfile, 1, 40, one, one!>
 //我们当前是在2号事务中，在testfile文件中的1号分区写入数据，原来是one，现在是one！
-//但是我们实际上是分两条进行存储的
-//<SETSTRING, 2, testfile, 1, 40, one>
-//<SETSTRING, 2, testfile, 1, 40, one!>
+//但是我们实际上是分两条进行存储的,我们在实际写入的时候，先在日志中写入原先的数据，再写入修改之后的数据
+//<SETSTRING, 2, testfile, 1, 40, one>(原先的)
+//<SETSTRING, 2, testfile, 1, 40, one!>（之后的）
 //我们在恢复的时候，从底部往上读取，这样先读到one！，写入，往上再读取到one,再继续写入同样位置，就可以覆盖掉之前的操作了，实现数据的恢复
 
 type SetStringRecord struct {
 	txNum  uint64      //当前事务对应的事务序列号
 	offset uint64      //当前写入的偏移位置
 	val    string      //当前写入的值
-	blk    *fm.BlockId //当前文件在哪个分区中1
+	blk    *fm.BlockId //当前文件在哪个分区中
 }
 
 //NewSetStringRecord 构造一个setstringrecord类型,初始化该日志对象
@@ -31,7 +31,7 @@ func NewSetStringRecord(p *fm.Page) *SetStringRecord {
 	bpos := fpos + p.MaxLengthForString(filename) //得到区块号偏移
 	blkNum := p.GetInt(bpos)                      //得到区块号
 	offsetPos := bpos + UIN64_LENGTH              //得到当前区块某个位置的偏移
-	offset := p.GetInt(offsetPos)                 //得到要操作的某个块的偏移
+	offset := p.GetInt(offsetPos)                 //得到要操作的某个文件中某个块的偏移
 	valPos := offsetPos + UIN64_LENGTH            //得到当前数据的偏移
 	val := p.GetString(valPos)                    //得到日志中的数据
 	return &SetStringRecord{
