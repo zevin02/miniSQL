@@ -89,7 +89,103 @@ func (t *Transaction) bufferNoExist(blk *fm.BlockId) error {
 
 //在事务中读取一个数据
 //读取数据,直接让强转(int64)
-func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) int64 {
-	//读取数据的时候，调用同步管理器加s类型的锁
+func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) (int64, error) {
+	//读取数据的时候，调用同步管理器加s类型的锁,加锁的数据范围要尽可能小
+	//t.slock()//加锁没有释放
+	buff := t.myBuffers.getBuf(blk)
+	if buff == nil {
+		//当前区块的数据并不存在
+		return -1, t.bufferNoExist(blk)
+	}
+	return buff.Contents().GetInt(offset), nil //在指定的buff中获得相应的数据
 
+}
+
+func (t *Transaction) GetString(blk *fm.BlockId, offset uint64) (string, error) {
+	//调用同步管理器加s锁
+	buff := t.myBuffers.getBuf(blk)
+	if buff == nil {
+		//当前区块的数据并不存在
+		return "", t.bufferNoExist(blk)
+	}
+	return buff.Contents().GetString(offset), nil //从相应的地方获得指定的数据
+}
+
+//okToLog=true会生成记录，为false就不会生成对应的记录
+func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog bool) error {
+	//调用同步管理器的x锁
+	//t.xlock()
+	buff := t.myBuffers.getBuf(blk)
+	if buff == nil {
+		//当前区块的数据并不存在
+		return t.bufferNoExist(blk)
+	}
+	//把当前操作作为一个日志记录起来
+	var lsn uint64
+	var err error
+	if okToLog {
+		//生成记录
+		lsn, err = t.recoverManager.SetInt(buff, offset, val) //转发给recovermanager，由他在里面增加这个记录,毕竟是由他来恢复的
+		if err != nil {
+			return err
+		}
+	}
+	p := buff.Contents()  //拿到他的缓存页
+	p.SetInt(offset, val) //往该缓存页中写入数据
+	//该缓存页改动过活，如果他分发给其他人使用的话，就需要写入磁盘
+	buff.SetModify(t.txNum, lsn) //记录下写入之前的信息
+	return nil
+}
+
+//okToLog=true会生成记录，为false就不会生成对应的记录
+func (t *Transaction) SetString(blk *fm.BlockId, offset uint64, val string, okToLog bool) error {
+	//调用同步管理器的x锁
+	//t.xlock()
+	buff := t.myBuffers.getBuf(blk)
+	if buff == nil {
+		//当前区块的数据并不存在
+		return t.bufferNoExist(blk)
+	}
+	//把当前操作作为一个日志记录起来
+	var lsn uint64
+	var err error
+	if okToLog {
+		//生成记录
+		lsn, err = t.recoverManager.SetString(buff, offset, val) //转发给recovermanager，由他在里面增加这个记录,毕竟是由他来恢复的
+		if err != nil {
+			return err
+		}
+	}
+	p := buff.Contents()     //拿到他的缓存页
+	p.SetString(offset, val) //往该缓存页中写入数据
+	//该缓存页改动过活，如果他分发给其他人使用的话，就需要写入磁盘
+	buff.SetModify(t.txNum, lsn) //记录下写入之前的信息
+	return nil
+}
+
+//Size 获得当前文件占据了多少个block
+func (t *Transaction) Size(filename string) uint64 {
+	//调用S锁
+	//dummy_blk:=fm.newBLockId(filename,uint64(endoffile))
+	//t.concur_mgr.slock(dummmyblk)
+	s, _ := t.fileManager.Size(filename)
+	return s
+}
+
+//Append 给当前事务对应的文件增加一个区块
+func (t *Transaction) Append(filename string) *fm.BlockId {
+	//调用一个X锁
+	blk, err := t.fileManager.Append(filename) //给当前文件增加一个区块
+	if err != nil {
+		return nil
+	}
+	return &blk
+
+}
+func (t *Transaction) BlockSize() uint64 {
+	return t.fileManager.BlockSize()
+}
+
+func (t *Transaction) AvailableBuffer() uint64 {
+	return uint64(t.bufferManager.Avaliable())
 }
