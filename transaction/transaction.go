@@ -21,13 +21,13 @@ func nextTxNum() int32 {
 }
 
 type Transaction struct {
-	myBuffers      *BufferList        //管理当前的缓存
+	myBuffers      *BufferList        //管理当前被pin的buffer对象
 	logManager     *lm.LogManager     //日志管理
 	fileManager    *fm.FileManager    //文件管理
-	recoverManager *rm.RecoverManager //恢复管理器
+	recoverManager *rm.RecoverManager //恢复管理器,用于事务恢复或者回滚
 	txNum          int32              //当前的事务序列号
 	bufferManager  *bm.BufferManager  //缓存管理器
-
+	concurrentMgr  ConcurrentManager  //管理并发请求
 }
 
 //NewTransaction 构造一个事务对象
