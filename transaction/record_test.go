@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	fm "miniSQL/file_manager"
 	lm "miniSQL/logManager"
 	"testing"
@@ -97,4 +98,51 @@ func TestSetIntRecord(t *testing.T) {
 	setstrRec.Undo(txStub)           //将数据进行恢复，回滚undo
 	recoverVal := pp.GetInt(offset)  //恢复原来的数据
 	assert.Equal(t, recoverVal, val) //和最开始的数据要求一致
+}
+
+//检查commit的日志信息
+func TestCommitRecord(t *testing.T) {
+	fmgr, err := fm.NewFileManager("/home/zevin/commit_test", 400)
+	assert.Nil(t, err)
+	lmgr, err := lm.NewLogManager(fmgr, "commit")
+	assert.Nil(t, err)
+	txNum := uint64(12)
+	WriteCommitkRecordLog(lmgr, txNum) //将数据写入日志
+	iter := lmgr.Iterator()
+	rec := iter.Next()
+	pp := fm.NewPageByBytes(rec) //将rec的数据写入到缓存中
+	rollbackrec := NewCommitRecord(pp, lmgr)
+	expected_val := fmt.Sprintf("<COMMIT %d>", txNum) //实际我们需要的日志
+	assert.Equal(t, expected_val, rollbackrec.ToString())
+}
+
+func TestCheckPointRecord(t *testing.T) {
+	fmgr, err := fm.NewFileManager("/home/zevin/checkPoint_test", 400)
+	assert.Nil(t, err)
+	lmgr, err := lm.NewLogManager(fmgr, "checkpoint")
+	assert.Nil(t, err)
+	WriteCheckPointToLog(lmgr)
+	iter := lmgr.Iterator()
+	rec := iter.Next()
+	pp := fm.NewPageByBytes(rec)
+	val := pp.GetInt(0)
+	assert.Equal(t, val, uint64(CHECKPOINT))
+	checkPointRec := NewCheckPointRecord()
+	expectVal := "<CHECKPOINT>"
+	assert.Equal(t, expectVal, checkPointRec.ToString())
+}
+
+func TestRollBackRecord(t *testing.T) {
+	file_manager, _ := fm.NewFileManager("/home/zevin/rollback_test", 400)
+	log_manager, _ := lm.NewLogManager(file_manager, "rollback")
+	tx_num := uint64(13)
+	WriteRollBackLog(log_manager, tx_num)
+	iter := log_manager.Iterator()
+	rec := iter.Next()
+	pp := fm.NewPageByBytes(rec)
+
+	roll_back_rec := NewRollBackRecord(pp)
+	expected_str := fmt.Sprintf("<ROLLBACK %d>", tx_num)
+
+	require.Equal(t, expected_str, roll_back_rec.ToString())
 }
