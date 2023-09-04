@@ -25,7 +25,7 @@ func NewLogIterator(file *fm.FileManager, blk *fm.BlockId) *LogIterator {
 	}
 	//读取给定区块的数据,把数据先从二进制文件中读取并写入到缓冲区中
 	it.p = fm.NewPageBySize(file.BlockSize()) //开辟一个缓冲区
-	err := it.moveToBlock(blk)                //把blk区块的数据读取到缓冲区中
+	err := it.moveToBlock(blk)                //把blk区块的数据读取到缓冲区中，数据的头8字节记录了当前走到了哪里,
 	if err != nil {
 		return nil
 	}

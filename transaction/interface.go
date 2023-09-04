@@ -4,6 +4,7 @@ import (
 	fm "miniSQL/file_manager"
 )
 
+//TransactionInterface 事务类型的接口
 type TransactionInterface interface {
 	Commit()
 	RollBack()
@@ -36,7 +37,7 @@ const (
 
 type LogRecordInterface interface {
 	Op() RECORD_TYPE
-	TxNumber() uint32
+	TxNumber() uint64
 	Undo(tx TransactionInterface) //把当前的事务进行恢复
 	ToString() string             //返回日志的文本形式
 }

@@ -19,7 +19,10 @@ import (
 	日志都是按照倒装的形式来进行存储，假设缓存区中有400字节，有3条日志，第一条100字节（存在300-400的位置），第二条50字节（250-300），第三条100字节（150-250）
 	这样因为我们是从开头往后读取的，所以这样我们就会先读取到最新的日志jian
 
-
+	日志的落盘时间
+	1.当当前的缓存满了，新开辟一块新的区块的时候就会将当前数据落盘
+	2.当获得迭代器的时候，就会将当前数据落盘
+	3.手动的调用Flush
 */
 
 const (
@@ -139,7 +142,7 @@ func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 }
 
 //获得日志文件的迭代器，进行遍历日志文件的内容
-func (l LogManager) Iterator() *LogIterator {
-	l.Flush()                                          //先将缓冲区中的数据刷新到磁盘中
+func (l *LogManager) Iterator() *LogIterator {
+	l.Flush()                                          //获得迭代器的时候先将缓冲区中的数据刷新到磁盘中,保证数据完全落盘
 	return NewLogIterator(l.fileManager, l.currentBlk) //从最后一个数据块开始读取，往前遍历
 }
