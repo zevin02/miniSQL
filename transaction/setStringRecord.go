@@ -35,10 +35,10 @@ func NewSetStringRecord(p *fm.Page) *SetStringRecord {
 	valPos := offsetPos + UIN64_LENGTH            //得到当前数据的偏移
 	val := p.GetString(valPos)                    //得到日志中的数据
 	return &SetStringRecord{
-		txNum:  txNum,
-		offset: offset,
+		txNum:  uint64(txNum),
+		offset: uint64(offset),
 		val:    val,
-		blk:    fm.NewBlockId(filename, blkNum), //开辟相应的位置信息
+		blk:    fm.NewBlockId(filename, uint64(blkNum)), //开辟相应的位置信息
 	}
 }
 
@@ -78,11 +78,11 @@ func WriteSetStringLog(log *lm.LogManager, txNum uint64, blk *fm.BlockId, offset
 	recordLen := vpos + p.MaxLengthForString(val)       //获得整个日志的长度
 	rec := make([]byte, recordLen)                      //这个record和page中是空想一个内存空间的
 	p = fm.NewPageByBytes(rec)
-	p.SetInt(0, uint64(SETSTRING))    //写入日志类型
-	p.SetInt(tpos, txNum)             //写入事务序列号
-	p.SetString(fpos, blk.FileName()) //写入文件名
-	p.SetInt(bpos, blk.Number())      //写入区块编号
-	p.SetInt(ops, offset)             //写入偏移量
-	p.SetString(vpos, val)            //写入数据
+	p.SetInt(0, int64(SETSTRING))       //写入日志类型
+	p.SetInt(tpos, int64(txNum))        //写入事务序列号
+	p.SetString(fpos, blk.FileName())   //写入文件名
+	p.SetInt(bpos, int64(blk.Number())) //写入区块编号
+	p.SetInt(ops, int64(offset))        //写入偏移量
+	p.SetString(vpos, val)              //写入数据
 	return log.Append(rec)
 }

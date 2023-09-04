@@ -40,7 +40,7 @@ func (it *LogIterator) moveToBlock(blk *fm.BlockId) error {
 		return err
 	}
 	//获得日志起始的地址
-	it.boundary = it.p.GetInt(0) //从缓冲区中读取日志下一次要写入的边界，实际上就是当前日志的末尾
+	it.boundary = uint64(it.p.GetInt(0)) //从缓冲区中读取日志下一次要写入的边界，实际上就是当前日志的末尾
 
 	it.currentPos = it.boundary //可以从这个位置开始进行读取，遍历数据
 	return nil

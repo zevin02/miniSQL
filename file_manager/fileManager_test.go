@@ -16,7 +16,7 @@ func TestFileManager(t *testing.T) {
 	size := p1.MaxLengthForString(s) //得到大小
 	//先写入到内存缓存中，在合适的时间再写入到磁盘文件中
 	pos2 := pos1 + size //得到了下一个写入的位置
-	val := uint64(345)
+	val := int64(345)
 	//写入一个整形
 	p1.SetInt(pos2, val)
 	fm.Write(blk, p1) //将p1中的数据写入到磁盘文件中

@@ -25,7 +25,7 @@ type RollBackRecord struct {
 
 func NewRollBackRecord(p *fm.Page) *RollBackRecord {
 	return &RollBackRecord{
-		tx_num: p.GetInt(UIN64_LENGTH),
+		tx_num: uint64(p.GetInt(UIN64_LENGTH)),
 	}
 }
 
@@ -48,7 +48,7 @@ func (r *RollBackRecord) ToString() string {
 func WriteRollBackLog(lgmr *lg.LogManager, tx_num uint64) (uint64, error) {
 	rec := make([]byte, 2*UIN64_LENGTH)
 	p := fm.NewPageByBytes(rec)
-	p.SetInt(0, uint64(ROLLBACK))
+	p.SetInt(0, int64(ROLLBACK))
 	p.SetInt(UIN64_LENGTH, tx_num)
 
 	return lgmr.Append(rec)

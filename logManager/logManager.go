@@ -51,8 +51,8 @@ func (l *LogManager) appendNewBlock() (*fm.BlockId, error) {
 		添加日志的时候是从内存的底部往上写入的，缓冲区400字节，日志100字节，就会写入到300-400的位置中，首先再缓冲区的头8字节写入偏移
 		假设日志100字节写入缓冲区，下一次写入的偏移位置就要从300开始算起，300就需要写入缓冲区中头8字节
 	*/
-	l.logPage.SetInt(0, uint64(l.fileManager.BlockSize())) //BlockSize==>400，往缓冲区中写入8字节的400,下一次再写入的时候，就需要先读取8字节，查看从哪个地方开始写入
-	l.fileManager.Write(&blk, l.logPage)                   //把当前日志缓冲区的内容，写入到日志文件中
+	l.logPage.SetInt(0, int64(l.fileManager.BlockSize())) //BlockSize==>400，往缓冲区中写入8字节的400,下一次再写入的时候，就需要先读取8字节，查看从哪个地方开始写入
+	l.fileManager.Write(&blk, l.logPage)                  //把当前日志缓冲区的内容，写入到日志文件中
 	return &blk, nil
 }
 
@@ -117,7 +117,7 @@ func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 	defer l.mu.Unlock()
 	//先读取缓冲区的头8个字节(在创建一个新的blockid的时候，就会在page的头部写入下一次数据的截至位置)，获取可以写入的偏移
 	boundary := l.logPage.GetInt(0) //得到可以此次可写入的偏移
-	logRecordSize := uint64(len(logRecord))
+	logRecordSize := int64(len(logRecord))
 	bytesNeed := logRecordSize + UINT64_LEN //这个是实际需要写入到缓冲区中占用的大小,+8是代表这个数据的长度
 	if int(boundary-bytesNeed) < int(UINT64_LEN) {
 		//因为前8个字节是存储下一次要开始的边界
@@ -133,9 +133,9 @@ func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 		}
 		boundary = l.logPage.GetInt(0) //更新获得当前可以写入的最末尾的偏移
 	}
-	recordPos := boundary - bytesNeed        //这样就到了头部了,得到了可以写入的起始偏移
-	l.logPage.SetBytes(recordPos, logRecord) //往日志的缓冲区中写入当前的日志信息
-	l.logPage.SetInt(0, recordPos)           //重新设置可以写入的偏移,供下一次写入的时候读取
+	recordPos := boundary - bytesNeed                //这样就到了头部了,得到了可以写入的起始偏移
+	l.logPage.SetBytes(uint64(recordPos), logRecord) //往日志的缓冲区中写入当前的日志信息
+	l.logPage.SetInt(0, recordPos)                   //重新设置可以写入的偏移,供下一次写入的时候读取
 	//因为我们成功的写入了一个新的日志，所以把成功写入的日志号+1
 	l.lastestLsn += 1
 	return l.lastestLsn, nil

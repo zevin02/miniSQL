@@ -33,7 +33,7 @@ type CommitRecord struct {
 func NewCommitRecord(page *fm.Page, logManager *lm.LogManager) *CommitRecord {
 	txNum := page.GetInt(UIN64_LENGTH) //从缓存中读取事务序列号,因为前8字节是当前日志的类型
 	return &CommitRecord{
-		txNum: txNum,
+		txNum: uint64(txNum),
 	}
 }
 
@@ -62,8 +62,8 @@ func (c *CommitRecord) ToString() string {
 func WriteCommitkRecordLog(lgmr *lm.LogManager, tx_num uint64) (uint64, error) {
 	rec := make([]byte, 2*UIN64_LENGTH)
 	p := fm.NewPageByBytes(rec)
-	p.SetInt(0, uint64(COMMIT))
-	p.SetInt(UIN64_LENGTH, tx_num)
+	p.SetInt(0, int64(COMMIT))
+	p.SetInt(UIN64_LENGTH, int64(tx_num))
 
 	return lgmr.Append(rec)
 }

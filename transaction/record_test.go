@@ -15,10 +15,10 @@ func TestStartRecord(t *testing.T) {
 	assert.Nil(t, err)
 	logManager, err := lm.NewLogManager(fileManager, "record_file")
 	assert.Nil(t, err)
-	txNum := uint64(13) //设置的事务序列号是13
+	txNum := int64(13) //设置的事务序列号是13
 	//将日志按照二进制形式写入到page中
 	p := fm.NewPageBySize(32)                    //开辟一个缓存块
-	p.SetInt(0, uint64(START))                   //先写入一个STRART
+	p.SetInt(0, int64(START))                    //先写入一个STRART
 	p.SetInt(UIN64_LENGTH, txNum)                //写入一个事务序列号
 	startRecord := NewStartRecord(p, logManager) //
 	expectedStr := fmt.Sprintf("<START %d>", txNum)
@@ -72,7 +72,7 @@ func TestSetIntRecord(t *testing.T) {
 	assert.Nil(t, err)
 	lmgr, err := lm.NewLogManager(fmgr, "setint")
 	assert.Nil(t, err)
-	val := uint64(11)                           //写入的字符串
+	val := int64(11)                            //写入的字符串
 	blk := uint64(1)                            //写入的区块编号
 	dummy_blk := fm.NewBlockId("dummy_id", blk) //生成一个区块管理器
 	txNum := uint64(1)                          //生成事务序列号
@@ -90,9 +90,9 @@ func TestSetIntRecord(t *testing.T) {
 	assert.Equal(t, setstrRec.ToString(), expectRec)
 
 	//对数据进行修改
-	pp.SetInt(offset, uint64(33))
+	pp.SetInt(offset, int64(33))
 	//修改了第二次
-	pp.SetInt(offset, uint64(98))
+	pp.SetInt(offset, int64(98))
 
 	txStub := NewTxStub(pp)          //创建一个事务对象
 	setstrRec.Undo(txStub)           //将数据进行恢复，回滚undo

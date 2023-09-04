@@ -16,7 +16,7 @@ import (
 type SetIntRecord struct {
 	txNum  uint64      //当前事务对应的事务序列号
 	offset uint64      //当前写入的偏移位置
-	val    uint64      //当前写入的值
+	val    int64       //当前写入的值
 	blk    *fm.BlockId //当前文件在哪个分区中1
 }
 
@@ -35,10 +35,10 @@ func NewSetIntRecord(p *fm.Page) *SetIntRecord {
 	valPos := offsetPos + UIN64_LENGTH            //得到当前数据的偏移
 	val := p.GetInt(valPos)                       //得到日志中的数据
 	return &SetIntRecord{
-		txNum:  txNum,
-		offset: offset,
+		txNum:  uint64(txNum),
+		offset: uint64(offset),
 		val:    val,
-		blk:    fm.NewBlockId(filename, blkNum), //开辟相应的位置信息
+		blk:    fm.NewBlockId(filename, uint64(blkNum)), //开辟相应的位置信息
 	}
 }
 
@@ -68,7 +68,7 @@ func (s *SetIntRecord) ToString() string {
 //WriteSetStringLog 生成一个二进制的日志数据
 //<SETSTRING, 2, testfile, 1, 40, one!>
 //返回当前的日志序列号
-func WriteSetIntLog(log *lm.LogManager, txNum uint64, blk *fm.BlockId, offset uint64, val uint64) (uint64, error) {
+func WriteSetIntLog(log *lm.LogManager, txNum uint64, blk *fm.BlockId, offset uint64, val int64) (uint64, error) {
 	tpos := uint64(UIN64_LENGTH) //获得事务序列号的位置
 	fpos := tpos + UIN64_LENGTH  //获得文件名的位置
 	p := fm.NewPageBySize(1)
@@ -78,11 +78,11 @@ func WriteSetIntLog(log *lm.LogManager, txNum uint64, blk *fm.BlockId, offset ui
 	recordLen := vpos + UIN64_LENGTH                    //获得整个日志的长度
 	rec := make([]byte, recordLen)                      //这个record和page中是空想一个内存空间的
 	p = fm.NewPageByBytes(rec)
-	p.SetInt(0, uint64(SETINT))       //写入日志类型
-	p.SetInt(tpos, txNum)             //写入事务序列号
-	p.SetString(fpos, blk.FileName()) //写入文件名
-	p.SetInt(bpos, blk.Number())      //写入区块编号
-	p.SetInt(ops, offset)             //写入偏移量
-	p.SetInt(vpos, val)               //写入数据
+	p.SetInt(0, int64(SETINT))          //写入日志类型
+	p.SetInt(tpos, int64(txNum))        //写入事务序列号
+	p.SetString(fpos, blk.FileName())   //写入文件名
+	p.SetInt(bpos, int64(blk.Number())) //写入区块编号
+	p.SetInt(ops, int64(offset))        //写入偏移量
+	p.SetInt(vpos, int64(val))          //写入数据
 	return log.Append(rec)
 }

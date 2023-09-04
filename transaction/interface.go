@@ -11,9 +11,9 @@ type TransactionInterface interface {
 	Recover()
 	Pin(blk *fm.BlockId)
 	UnPin(blk *fm.BlockId)
-	GetInt(blk *fm.BlockId, offset uint64) uint64 //读取数据,直接让强转(int64)
+	GetInt(blk *fm.BlockId, offset uint64) int64 //读取数据,直接让强转(int64)
 	GetString(blk *fm.BlockId, offset uint64) string
-	SetInt(blk *fm.BlockId, offset uint64, val uint64, okToLog bool) //是否需要产生日志
+	SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog bool) //是否需要产生日志
 	SetString(blk *fm.BlockId, offset uint64, val string, okToLog bool)
 	AvailableBuffer() uint64
 	Size(filename string) uint64

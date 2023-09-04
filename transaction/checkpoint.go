@@ -39,6 +39,6 @@ func (c *CheckPointRecord) ToString() string {
 func WriteCheckPointToLog(lgmr *lg.LogManager) (uint64, error) {
 	rec := make([]byte, UIN64_LENGTH)
 	p := fm.NewPageByBytes(rec)
-	p.SetInt(0, uint64(CHECKPOINT)) //前8个字节写入他的日志类型为checkpoint
+	p.SetInt(0, int64(CHECKPOINT)) //前8个字节写入他的日志类型为checkpoint
 	return lgmr.Append(rec)
 }

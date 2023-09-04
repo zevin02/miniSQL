@@ -15,7 +15,7 @@ func makeRecord(s string, n uint64) []byte {
 	b := make([]byte, npos+UINT64_LEN) //npos的就是把string数据写入到内部了，+8就是包含了后面的一个int
 	p = fm.NewPageByBytes(b)           //把b的数据拷贝到p中
 	p.SetString(0, s)                  //在缓冲区的0号偏移位置中写入s
-	p.SetInt(npos, n)                  //在npos的位置处写入n
+	p.SetInt(npos, int64(n))           //在npos的位置处写入n
 	return b
 }
 
@@ -33,7 +33,7 @@ func TestLogManager(t *testing.T) {
 	assert.Nil(t, err)
 	createRecord(logManager, 1, 35)
 	iter := logManager.Iterator()
-	recNum := uint64(35) //从最新的数据开始进行遍历日志
+	recNum := int64(35) //从最新的数据开始进行遍历日志
 	for iter.Valid() {
 		rec := iter.Next()
 		p := fm.NewPageByBytes(rec) //把读取的数据写入到缓冲区里面进行读取写入检查（字符串+整形）
@@ -47,7 +47,7 @@ func TestLogManager(t *testing.T) {
 	createRecord(logManager, 36, 70)
 	logManager.Flush()
 	iter = logManager.Iterator()
-	recNum = uint64(70)
+	recNum = int64(70)
 	for iter.Valid() {
 		rec := iter.Next()
 		p := fm.NewPageByBytes(rec)

@@ -36,7 +36,7 @@ func (t *TxStub) Pin(_ *fm.BlockId) {
 func (t *TxStub) UnPin(_ *fm.BlockId) {
 
 }
-func (t *TxStub) GetInt(_ *fm.BlockId, offset uint64) uint64 {
+func (t *TxStub) GetInt(_ *fm.BlockId, offset uint64) int64 {
 
 	return t.p.GetInt(offset)
 }
@@ -45,7 +45,7 @@ func (t *TxStub) GetString(_ *fm.BlockId, offset uint64) string {
 	return val
 }
 
-func (t *TxStub) SetInt(_ *fm.BlockId, offset uint64, val uint64, _ bool) {
+func (t *TxStub) SetInt(_ *fm.BlockId, offset uint64, val int64, _ bool) {
 	t.p.SetInt(offset, val)
 }
 

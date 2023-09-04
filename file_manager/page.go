@@ -25,20 +25,20 @@ func NewPageByBytes(bytes []byte) *Page {
 }
 
 //GetInt 根据offset从缓冲区里面读取一个uint64的数据出来
-func (p *Page) GetInt(offset uint64) uint64 {
+func (p *Page) GetInt(offset uint64) int64 {
 	num := binary.LittleEndian.Uint64(p.buffer[offset : offset+8]) //读取出来一个8字节大小的数
-	return num
+	return int64(num)
 }
 
 //Uint64ToByteArray 将一个64位数编码成一个字节数组
-func Uint64ToByteArray(val uint64) []byte {
-	b := make([]byte, 8)                  //开辟一个8字节大小的空间出来
-	binary.LittleEndian.PutUint64(b, val) //把数据进行编码写入到b缓冲区中
+func Uint64ToByteArray(val int64) []byte {
+	b := make([]byte, 8)                          //开辟一个8字节大小的空间出来
+	binary.LittleEndian.PutUint64(b, uint64(val)) //把数据进行编码写入到b缓冲区中
 	return b
 }
 
 //SetInt 设置page中的缓冲区
-func (p *Page) SetInt(offset, val uint64) {
+func (p *Page) SetInt(offset uint64, val int64) {
 	b := Uint64ToByteArray(val) //把val进行编码缓存到b中
 	copy(p.buffer[offset:], b)  //把编码好的数据缓存到buffer中
 }
@@ -55,7 +55,7 @@ func (p *Page) GetBytes(offset uint64) []byte {
 //SetBytes 往Page中的buf中写入相应的字节
 func (p *Page) SetBytes(offset uint64, b []byte) {
 	//写入的时候，首先要写入的就是数组的长度
-	length := uint64(len(b))
+	length := int64(len(b))
 	lenBuf := Uint64ToByteArray(length) //将当前的俄长度
 	//然后再将编码后的长度字节数组写入到缓冲区中
 	copy(p.buffer[offset:], lenBuf)

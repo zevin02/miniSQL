@@ -7,7 +7,7 @@ import (
 
 func TestSetAndGetInt(t *testing.T) {
 	page := NewPageBySize(256) //开辟一个256的内存
-	val := uint64(1234)
+	val := int64(1234)
 	offset := uint64(23)
 	page.SetInt(offset, val)      //把val数据写入到offset位置
 	valGot := page.GetInt(offset) //读取一个int64大小的数据

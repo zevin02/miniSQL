@@ -16,7 +16,7 @@ type StartRecord struct {
 func NewStartRecord(page *fm.Page, logManager *lm.LogManager) *StartRecord {
 	txNum := page.GetInt(UIN64_LENGTH) //从缓存中读取事务序列号,因为前8字节是当前日志的类型
 	return &StartRecord{
-		txNum:      txNum,
+		txNum:      uint64(txNum),
 		logManager: logManager,
 	}
 }
@@ -45,8 +45,8 @@ func (s *StartRecord) ToString() string {
 func (s *StartRecord) WriteToLog() (uint64, error) {
 	record := make([]byte, 2*UIN64_LENGTH) //一共是16个字节
 	p := fm.NewPageByBytes(record)         //构造一个buffer出来
-	p.SetInt(uint64(0), uint64(START))     //前面8字节是日志的类型
-	p.SetInt(UIN64_LENGTH, s.txNum)        //后面8字节是日志的事务序列号
+	p.SetInt(uint64(0), int64(START))      //前面8字节是日志的类型
+	p.SetInt(UIN64_LENGTH, int64(s.txNum)) //后面8字节是日志的事务序列号
 	return s.logManager.Append(record)     //把数据写入到日志中
 
 }
