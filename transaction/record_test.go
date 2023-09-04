@@ -64,3 +64,37 @@ func TestSetStringRecord(t *testing.T) {
 	recoverStr := pp.GetString(offset) //恢复原来的数据
 	assert.Equal(t, recoverStr, str)   //和最开始的数据要求一致
 }
+
+//测试SetInt
+func TestSetIntRecord(t *testing.T) {
+	fmgr, err := fm.NewFileManager("/home/zevin/setint_test", 400)
+	assert.Nil(t, err)
+	lmgr, err := lm.NewLogManager(fmgr, "setint")
+	assert.Nil(t, err)
+	val := uint64(11)                           //写入的字符串
+	blk := uint64(1)                            //写入的区块编号
+	dummy_blk := fm.NewBlockId("dummy_id", blk) //生成一个区块管理器
+	txNum := uint64(1)                          //生成事务序列号
+	offset := uint64(13)                        //生成偏移量
+	//写入用来恢复的日志
+	WriteSetIntLog(lmgr, txNum, dummy_blk, offset, val) //将日志数据写入，生成一个日志
+	//pp中就是我们用户实际要写入的记录的数据
+	pp := fm.NewPageBySize(400)        //生成一个缓存区块
+	pp.SetInt(offset, val)             //在当前位置写入当前的数据
+	iter := lmgr.Iterator()            //获得迭代器
+	rec := iter.Next()                 //进行迭代,获得数据的日志数据
+	logp := fm.NewPageByBytes(rec)     //将获得的日志数据写入缓冲区
+	setstrRec := NewSetIntRecord(logp) //将当前的缓存数据写入的奥setstring的管理器
+	expectRec := fmt.Sprintf("<SETINT %d %s %d %d %d>", txNum, dummy_blk.FileName(), blk, offset, val)
+	assert.Equal(t, setstrRec.ToString(), expectRec)
+
+	//对数据进行修改
+	pp.SetInt(offset, uint64(33))
+	//修改了第二次
+	pp.SetInt(offset, uint64(98))
+
+	txStub := NewTxStub(pp)          //创建一个事务对象
+	setstrRec.Undo(txStub)           //将数据进行恢复，回滚undo
+	recoverVal := pp.GetInt(offset)  //恢复原来的数据
+	assert.Equal(t, recoverVal, val) //和最开始的数据要求一致
+}
