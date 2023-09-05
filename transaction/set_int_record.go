@@ -56,7 +56,7 @@ func (s *SetIntRecord) TxNumber() uint64 {
 func (s *SetIntRecord) Undo(tx TransactionInterface) {
 	tx.Pin(s.blk)
 	tx.SetInt(s.blk, s.offset, s.val, false) //将原来字符串写回去,false说明当前操作不需要增加一个新的记录,往缓存中写入
-	tx.UnPin(s.blk)
+	tx.Unpin(s.blk)
 }
 
 //ToString 返回日志的文本形式

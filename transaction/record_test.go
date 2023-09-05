@@ -23,14 +23,14 @@ func TestStartRecord(t *testing.T) {
 	startRecord := NewStartRecord(p, logManager) //
 	expectedStr := fmt.Sprintf("<START %d>", txNum)
 	assert.Equal(t, expectedStr, startRecord.ToString())
-	_, err = startRecord.WriteToLog() //把当前数据按照二进制新是写入到磁盘中
+	_, err = startRecord.WriteStartToLog() //把当前数据按照二进制新是写入到磁盘中
 	assert.Nil(t, err)
 	iter := logManager.Iterator()
 	rec := iter.Next()
 	recOp := binary.LittleEndian.Uint64(rec[0:8]) //从record中提取当前的日志类型
 	recTxNum := binary.LittleEndian.Uint64(rec[8:len(rec)])
 	assert.Equal(t, recOp, uint64(START))
-	assert.Equal(t, recTxNum, txNum)
+	assert.Equal(t, int64(recTxNum), txNum)
 }
 
 func TestSetStringRecord(t *testing.T) {
@@ -111,7 +111,7 @@ func TestCommitRecord(t *testing.T) {
 	iter := lmgr.Iterator()
 	rec := iter.Next()
 	pp := fm.NewPageByBytes(rec) //将rec的数据写入到缓存中
-	rollbackrec := NewCommitRecord(pp, lmgr)
+	rollbackrec := NewCommitRecord(pp)
 	expected_val := fmt.Sprintf("<COMMIT %d>", txNum) //实际我们需要的日志
 	assert.Equal(t, expected_val, rollbackrec.ToString())
 }
@@ -126,7 +126,7 @@ func TestCheckPointRecord(t *testing.T) {
 	rec := iter.Next()
 	pp := fm.NewPageByBytes(rec)
 	val := pp.GetInt(0)
-	assert.Equal(t, val, uint64(CHECKPOINT))
+	assert.Equal(t, uint64(val), uint64(CHECKPOINT))
 	checkPointRec := NewCheckPointRecord()
 	expectVal := "<CHECKPOINT>"
 	assert.Equal(t, expectVal, checkPointRec.ToString())

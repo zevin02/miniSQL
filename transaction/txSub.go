@@ -33,24 +33,26 @@ func (t *TxStub) Pin(_ *fm.BlockId) {
 
 }
 
-func (t *TxStub) UnPin(_ *fm.BlockId) {
+func (t *TxStub) Unpin(_ *fm.BlockId) {
 
 }
-func (t *TxStub) GetInt(_ *fm.BlockId, offset uint64) int64 {
+func (t *TxStub) GetInt(_ *fm.BlockId, offset uint64) (int64, error) {
 
-	return t.p.GetInt(offset)
+	return t.p.GetInt(offset), nil
 }
-func (t *TxStub) GetString(_ *fm.BlockId, offset uint64) string {
+func (t *TxStub) GetString(_ *fm.BlockId, offset uint64) (string, error) {
 	val := t.p.GetString(offset)
-	return val
+	return val, nil
 }
 
-func (t *TxStub) SetInt(_ *fm.BlockId, offset uint64, val int64, _ bool) {
+func (t *TxStub) SetInt(_ *fm.BlockId, offset uint64, val int64, _ bool) error {
 	t.p.SetInt(offset, val)
+	return nil
 }
 
-func (t *TxStub) SetString(_ *fm.BlockId, offset uint64, val string, _ bool) {
+func (t *TxStub) SetString(_ *fm.BlockId, offset uint64, val string, _ bool) error {
 	t.p.SetString(offset, val)
+	return nil
 }
 
 func (t *TxStub) Size(_ string) uint64 {

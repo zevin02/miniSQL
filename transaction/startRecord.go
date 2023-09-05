@@ -43,7 +43,7 @@ func (s *StartRecord) ToString() string {
 }
 
 //WriteToLog 将数据写入到文本中
-func (s *StartRecord) WriteToLog() (uint64, error) {
+func (s *StartRecord) WriteStartToLog() (uint64, error) {
 	record := make([]byte, 2*UIN64_LENGTH) //一共是16个字节
 	p := fm.NewPageByBytes(record)         //构造一个buffer出来
 	p.SetInt(uint64(0), int64(START))      //前面8字节是日志的类型

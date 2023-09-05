@@ -90,6 +90,7 @@ func (f *FileManager) Read(blk *BlockId, p *Page) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	//todo file close 后需要把他的句柄从打开的文件map中去掉
 	defer file.Close() //读取完就将当前文件进行关闭
 	//把数据放到page的缓冲区中,从文件在磁盘存储的某个区块开始进行读取
 	//int64(blk.Number()*f.BlockSize),二进制文件的偏移的位置，受他存储的第几个区块决定的

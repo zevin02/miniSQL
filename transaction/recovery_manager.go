@@ -8,10 +8,10 @@ import (
 
 //RecoveryManager 该对象的产生一定伴随这一个事务的出现,同时也是由这个对象来产生事务中的日志信息
 type RecoveryManager struct {
-	logManager    *lm.LogManager //当前日志管理器中记录了事务中的各种日志
-	bufferManager *bm.BufferManager
-	tx            *Transaction //事务对象
-	txNum         int32        //当前事务对应的事务序列号
+	logManager    *lm.LogManager    //当前日志管理器中记录了事务中的各种日志
+	bufferManager *bm.BufferManager //这个buffer就是和当前事务的缓存管理器一样
+	tx            *Transaction      //事务对象,里面由对应的事务序列号,就管理该事务即可
+	txNum         int32             //当前事务对应的事务序列号
 }
 
 //NewRecoverManager 这个日志是全局日志,不只管理一个事务，二是管理一群事务的日志
@@ -27,7 +27,7 @@ func NewRecoverManager(tx *Transaction, TxNum int32, logManager *lm.LogManager, 
 	p.SetInt(0, int64(START)) //写入日志类型
 	p.SetInt(UIN64_LENGTH, int64(TxNum))
 	startRecord := NewStartRecord(p, logManager)
-	startRecord.WriteToLog() //将当前的数据，写成二进制形式的日志
+	startRecord.WriteStartToLog() //将当前的数据，写成二进制形式的日志
 	return rm
 }
 
@@ -39,6 +39,7 @@ func (r *RecoveryManager) Commit() error {
 	if err != nil {
 		return err
 	}
+	//将commit日志及之前的数据刷新到磁盘中（不仅包含这个事务的日志）
 	r.logManager.FlushByLSN(lsn) //把比当前日志小的数据都刷新到磁盘中
 	return nil
 }
@@ -46,7 +47,7 @@ func (r *RecoveryManager) Commit() error {
 //RollBack rollback是我们手动执行的，并不是系统执行的，我们由start，但是执行到一半，想要回滚当前操作
 func (r *RecoveryManager) RollBack() error {
 	r.doRollBack() //执行回滚操作
-	//数据写回到内存页中
+	//rollback的时候已经把数据写回到内存页中
 	r.bufferManager.FlushAll(r.txNum)                           //把当前事务号在实现之前的数据全部冲刷到磁盘上
 	lsn, err := WriteRollBackLog(r.logManager, uint64(r.txNum)) //写入日志，并获得日志号
 	if err != nil {
@@ -59,7 +60,8 @@ func (r *RecoveryManager) RollBack() error {
 	return nil
 }
 
-//Recover 是系统执行的，发现由START，而没有找到commit，所以我们就需要执行数据的恢复,恢复到事务执行之前的状态
+//Recover 是系统执行的，发现由START，而没有找到commit，所以我们就需要执行数据的恢复,恢复到事务执行之前的状态4
+//把每commit和rollback的事务都回滚
 func (r *RecoveryManager) Recover() error {
 	r.doRecover()                                  //同样也是执行回滚操作
 	r.bufferManager.FlushAll(r.txNum)              //同样也是要把当前事务的之前的所有数据都刷新到磁盘中
@@ -113,7 +115,7 @@ func (r *RecoveryManager) CreateRecord(bytes []byte) LogRecordInterface {
 
 //doRollBack 这个rollback是针对某个具体的事务去执行
 func (r *RecoveryManager) doRollBack() {
-	iter := r.logManager.Iterator() //获得日志的迭代器，日志的迭代器是从最新的数据开始进行迭代，越往后面迭代的数据越旧
+	iter := r.logManager.Iterator() //获得日志的迭代器，日志的迭代器是从最新的数据开始进行迭代，越往后面迭代的数据越旧,包含所有事务的日志
 	for iter.Valid() {
 		rec := iter.Next()               //获得当前的日志二进制的数据
 		logRecord := r.CreateRecord(rec) //根据这个日志数据，创建一个日志对象
@@ -121,9 +123,11 @@ func (r *RecoveryManager) doRollBack() {
 		if logRecord.TxNumber() == uint64(r.txNum) {
 			//如果不是当前事务的日志
 			if logRecord.Op() == START {
+				//如果找到了Start ，说明当前的回滚结束了，就可以返回了
 				return
 			}
-			logRecord.Undo(r.tx) //执行undo操作
+			//说明还在当前的事务中，执行回滚即可
+			logRecord.Undo(r.tx) //执行undo操作,undo的事务就是写入当前事务的缓冲区中
 		}
 	}
 }
@@ -133,14 +137,16 @@ func (r *RecoveryManager) doRecover() {
 	//遍历日志管理器中的日志记录，查找所有的已经commit过了的事务的日志
 	finishedTxs := make(map[uint64]bool) //set功能，集合的是所有执行过commit的操作的事务或者是执行了ROLLBACK的事务,把这些数据进行一个恢复日志的完整的数据
 	iter := r.logManager.Iterator()
-	//同样是从最新的日志开始执行
 	for iter.Valid() {
 		rec := iter.Next()
 		logRecord := r.CreateRecord(rec)
+		//由于是从最新的日志开始进行迭代，所以肯定事务肯定是先找到commit或者rollabck，其他的就是没完成
+
 		if logRecord.Op() == COMMIT || logRecord.Op() == ROLLBACK {
-			//记录当前有commit或者有rollback的日志
+			//记录当前有commit或者有rollback的日志（表示当前的日志已经完成了操作不需要进行恢复，要门已经commit提交刷新到磁盘，要门回滚恢复到了原来的状态，同样也刷新到磁盘了）
 			finishedTxs[logRecord.TxNumber()] = true
 		}
+
 		exitst, ok := finishedTxs[uint64(r.txNum)]
 		if !ok || !exitst {
 			//走到这里这个说明他只有start，而没有commit和rollback，有头无尾的，就需要进行一个undo

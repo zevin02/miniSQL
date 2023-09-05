@@ -20,17 +20,18 @@ func nextTxNum() int32 {
 	return nextTxNumId
 }
 
+//Transaction 管理某个事务
 type Transaction struct {
-	myBuffers      *BufferList       //管理当前被pin的buffer对象
-	logManager     *lm.LogManager    //日志管理,souna
+	myBuffers      *BufferList       //管理当前事务被pin的buffer对象
+	logManager     *lm.LogManager    //日志管理,所有的日志都由该日志管理器的日志记录
 	fileManager    *fm.FileManager   //文件管理
 	recoverManager *RecoveryManager  //恢复管理器,用于事务恢复或者回滚
 	txNum          int32             //当前的事务序列号
-	bufferManager  *bm.BufferManager //缓存管理器
+	bufferManager  *bm.BufferManager //缓存管理器,管理当前事务使用缓存
 	//concurrentMgr  ConcurrentManager //管理并发请求
 }
 
-//NewTransaction 构造一个事务对象
+//NewTransaction 构造一个事务对象，传入的是文件管理器，缓存管理器，日志管理器
 func NewTransaction(fileManager *fm.FileManager, logManager *lm.LogManager, bufferManager *bm.BufferManager) *Transaction {
 	tx := &Transaction{
 		fileManager:   fileManager,
@@ -41,6 +42,7 @@ func NewTransaction(fileManager *fm.FileManager, logManager *lm.LogManager, buff
 	}
 	//创建同步管理器
 	//创建恢复管理器
+	//当前事务创建，就相当于一个事务启动了,START X
 	tx.recoverManager = NewRecoverManager(tx, tx.txNum, logManager, bufferManager)
 	return tx
 }
@@ -55,7 +57,7 @@ func (t *Transaction) Commit() {
 	t.myBuffers.UnpinAll()
 }
 
-//RollBack 执行一个回滚操作,好像当前的所有事务没有发生一样,丢弃当前事务
+//RollBack 执行一个回滚操作,好像当前的所有事务没有发生一样,丢弃当前事务，恢复到事务发生之前的状态
 func (t *Transaction) RollBack() {
 	t.recoverManager.RollBack()
 	r := fmt.Sprintf("transaction %d roll back", t.txNum)
@@ -80,14 +82,14 @@ func (t *Transaction) Unpin(blk *fm.BlockId) {
 	t.myBuffers.Unpin(blk) //调用pin进行管理
 }
 
-//缓存不存在
+//bufferNoExist 缓存不存在
 func (t *Transaction) bufferNoExist(blk *fm.BlockId) error {
 	err_s := fmt.Sprintf("No Buffer found  for given blk %d with filename: %s\n", blk.Number(), blk.FileName())
 	err := errors.New(err_s)
 	return err
 }
 
-//在事务中读取一个数据
+//GetInt 在事务中读取一个数据
 //读取数据,直接让强转(int64)
 func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) (int64, error) {
 	//读取数据的时候，调用同步管理器加s类型的锁,加锁的数据范围要尽可能小
@@ -112,7 +114,7 @@ func (t *Transaction) GetString(blk *fm.BlockId, offset uint64) (string, error) 
 	return buff.Contents().GetString(offset), nil //从相应的地方获得指定的数据
 }
 
-//okToLog=true会生成记录，为false就不会生成对应的记录
+//SetInt okToLog=true会生成记录，为false就不会生成对应的记录
 func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog bool) error {
 	//调用同步管理器的x锁
 	//t.xlock()
@@ -134,7 +136,7 @@ func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog 
 	p := buff.Contents()  //拿到他的缓存页
 	p.SetInt(offset, val) //往该缓存页中写入数据
 	//该缓存页改动过活，如果他分发给其他人使用的话，就需要写入磁盘
-	buff.SetModify(t.txNum, lsn) //记录下写入之前的信息
+	buff.SetModify(t.txNum, lsn) //更新当前buffer对应的事务以及日志，标记该缓存已经被修改了
 	return nil
 }
 
@@ -184,10 +186,13 @@ func (t *Transaction) Append(filename string) *fm.BlockId {
 	return &blk
 
 }
+
+//BlockSize 获得缓存块大小
 func (t *Transaction) BlockSize() uint64 {
 	return t.fileManager.BlockSize()
 }
 
+//AvailableBuffer 获得当前缓存管理器还可用的缓存块个数
 func (t *Transaction) AvailableBuffer() uint64 {
 	return uint64(t.bufferManager.Avaliable())
 }
