@@ -8,20 +8,20 @@ type SchemaInterface interface {
 	//字段有两种类型，一种是string，一种是int类型
 	AddField(fieldName string, fieldType FIELD_TYPE, length int)
 	AddIntField(fieldName string)
-	AddStringFiled(fileName string, length int)
-	Add(fieldString string, length int) //整形类型或字符串类型都能添加
-	AddAll(sch SchemaInterface)         //把该对象的所有描述都加入进来
-	Fields() []string                   //返回所有字段的名称
-	HashFiled(fieldName string) bool    //是否有某个字段
-	Type(filedName string) FIELD_TYPE   //返回某个字段对应的类型
-	Length(fieldName string) int        //返回该字段对应列的长度
+	AddStringField(fieldName string, length int)
+	Add(fieldName string, sch SchemaInterface) //整形类型或字符串类型都能添加
+	AddAll(sch SchemaInterface)                //把该对象的所有描述都加入进来
+	Fields() []string                          //返回所有字段的名称
+	HashField(fieldName string) bool           //是否有某个字段
+	Type(fieldName string) FIELD_TYPE          //返回某个字段对应的类型
+	Length(fieldName string) int               //返回该字段对应列的长度
 }
 
-//某字字段在表中的偏移
+//LayoutInterface 某字字段在表中的偏移
 // 8   16  1
 //1000,张三,男，计算机科学技术(departMent)
 //layoutinterface.offset(department)=8+16+1=25放回某个列的偏移
-//
+//用来描述某个具体的字段
 type LayoutInterface interface {
 	Schema() SchemaInterface
 	Offset(fieldName string) int //返回这个字段在这个表中的偏移
