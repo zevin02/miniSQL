@@ -37,7 +37,7 @@ func NewTransaction(fileManager *fm.FileManager, logManager *lm.LogManager, buff
 		fileManager:   fileManager,
 		logManager:    logManager,
 		bufferManager: bufferManager,
-		myBuffers:     NewBufferList(bufferManager), //构造一个bufferLsit对象，传入对应的缓存管理器即可
+		myBuffers:     NewBufferList(bufferManager), //构造一个bufferList对象，传入对应的缓存管理器即可
 		txNum:         nextTxNum(),
 	}
 	//创建同步管理器

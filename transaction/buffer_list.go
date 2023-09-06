@@ -58,7 +58,7 @@ func (b *BufferList) Unpin(blk *fm.BlockId) {
 	delete(b.buffers, blk) //将该节点进行删除
 }
 
-//UnpinAll unpin掉所有的对象
+//UnpinAll unpin掉当前事务使用的所有的缓存页面
 func (b BufferList) UnpinAll() {
 	for _, blk := range b.pins { //获得所有pin的对象
 		buffer := b.buffers[blk]
