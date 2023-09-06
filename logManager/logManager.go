@@ -84,7 +84,7 @@ func NewLogManager(fileManager *fm.FileManager, logFile string) (*LogManager, er
 	return &logMgr, nil
 }
 
-//FlushByLSN LSN- log sequence number
+//FlushByLSN LSN- log sequence number,刷新日志
 func (l *LogManager) FlushByLSN(lsn uint64) error {
 	//把给定编号及其之前的日志写入到磁盘
 	//当我们写入给定编号的日志的时候，接口会把同当前日志处与同一区块的日志写入到磁盘中，假设当前的日志是65,
@@ -97,12 +97,12 @@ func (l *LogManager) FlushByLSN(lsn uint64) error {
 		}
 		//更新写入的编号
 		l.lastestLsn = lsn
-		l.lastSaved2DiskLsn = l.lastSaved2DiskLsn //同样更新上次刷新到磁盘的日志号
+		l.lastSaved2DiskLsn = l.lastestLsn //同样更新上次刷新到磁盘的日志号
 	}
 	return nil
 }
 
-//Flush 将缓冲区中的数据刷新到磁盘中
+//Flush 实际将日志缓冲区中的数据刷新到磁盘中
 func (l *LogManager) Flush() error {
 	//把给定缓冲区的数据写入到磁盘中
 	_, err := l.fileManager.Write(l.currentBlk, l.logPage)

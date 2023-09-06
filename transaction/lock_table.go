@@ -140,8 +140,9 @@ func (l *LockTable) UnLock(blk *fm.BlockId) {
 		l.lockMap[blk] = val - 1
 	} else {
 		//互斥锁
-		l.lockMap[blk] = 0 //设置他成为0,都表示他没有锁
-		l.notifyAll(blk)   //互斥锁释放了，给所有等待中的线程发消息
+		//l.lockMap[blk] = 0 //设置他成为0,都表示他没有锁
+		delete(l.lockMap, blk) //删除这个元素
+		l.notifyAll(blk)       //互斥锁释放了，给所有等待中的线程发消息
 	}
 }
 
@@ -158,7 +159,7 @@ func (l *LockTable) hashSlock(blk *fm.BlockId) bool {
 //waitTooLong 判断是否等待超时了
 func (l *LockTable) waitTooLong(start time.Time) bool {
 	//我们看看是否有超时
-	elapsed := time.Since(start) //看看等待的时间
+	elapsed := time.Since(start).Seconds() //看看等待的时间
 	if elapsed >= MAX_WAITING_TIME {
 		//超过了给定时间，就返回true
 		return true

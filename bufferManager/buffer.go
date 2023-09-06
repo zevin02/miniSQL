@@ -17,7 +17,7 @@ type Buffer struct {
 	blk      *fm.BlockId //区块的描述
 	pins     uint32      //当前buffer的引用计数,=0的时候就可以释放了
 	txnum    int32       //当前buffer目前在管理事务号
-	lsn      uint64      //当前buffer目前正在管理的日志号
+	lsn      uint64      //当前buffer执行操作对应的日志号
 }
 
 func NewBuffer(fileManager *fm.FileManager, logManager *lm.LogManager) *Buffer {
@@ -68,7 +68,7 @@ func (b *Buffer) Assign2Block(blockId *fm.BlockId) {
 	b.pins = 0                              //当前是新读的一个page页面，所以引用计数为0
 }
 
-//Flush 把数据刷新到磁盘中
+//Flush 把数据刷新到磁盘中,先刷新日志，再刷新数据
 func (b *Buffer) Flush() {
 	if b.txnum > 0 { //当前的事务号！=0,说明当前就有新的数据增加进来
 		b.logManager.FlushByLSN(b.lsn)           //把小于当前编号的日志都刷新到磁盘中,为以后系统的崩溃恢复提供支持

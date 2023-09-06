@@ -36,7 +36,7 @@ func NewBufferManager(fileManager *fm.FileManager, logManager *lm.LogManager, nu
 		numAvailable: numBuffer, //有多少个页面可以使用
 	}
 
-	//根据缓存池中的数量来分配需要buffer
+	//根据缓存池中的数量来分配需要buffer,开辟内存池
 	for i := uint32(0); i < numBuffer; i++ {
 		buffer := NewBuffer(fileManager, logManager)                        //申请一个buffer出来
 		bufferManager.bufferPool = append(bufferManager.bufferPool, buffer) //将申请的buffer添加到池中进行管理
