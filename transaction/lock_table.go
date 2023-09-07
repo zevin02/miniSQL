@@ -78,8 +78,8 @@ func (l *LockTable) waitGivenTimeOut(blk *fm.BlockId) {
 func (l *LockTable) notifyAll(blk *fm.BlockId) {
 	go func() {
 		//在匿名线程中执行wait，可以避免阻塞当前主线程,实现异步等待，
-		l.notifyWg[blk].Wait() //我们需要等待所有线程都执行完之后，重新给该区块初始化一个新的管道，等待所有计数归零
-		l.notifyChan[blk] = make(chan struct{})
+		l.notifyWg[blk].Wait()                  //我们需要等待所有线程都执行完之后，重新给该区块初始化一个新的管道，等待所有计数归零
+		l.notifyChan[blk] = make(chan struct{}) //重刑创建管道发送信号
 	}()
 	close(l.notifyChan[blk]) //发送信号,给某个线程
 }
@@ -89,7 +89,7 @@ func (l *LockTable) Slock(blk *fm.BlockId) error {
 	//这个是外面可以直接调用的，所以需要进行加锁
 	l.methodLock.Lock() //避免出现线程安全的问题
 	defer l.methodLock.Unlock()
-	l.initWaitingOnBlk(blk)
+	l.initWaitingOnBlk(blk) //如果当前区块没有初始化的话，就需要进行初始化
 	start := time.Now()
 	//读读不互斥，读写互斥
 	for l.hasXlock(blk) && !l.waitTooLong(start) {

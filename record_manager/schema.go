@@ -15,6 +15,7 @@ type FieldInfo struct {
 	length    int        //该字段占用的长度
 }
 
+//newFieldInfo
 func newFieldInfo(fieldType FIELD_TYPE, length int) *FieldInfo {
 	return &FieldInfo{
 		fieldType: fieldType,
@@ -22,6 +23,7 @@ func newFieldInfo(fieldType FIELD_TYPE, length int) *FieldInfo {
 	}
 }
 
+//一个表的结构信息
 type Schema struct {
 	fields []string              //一个表中有多个字段
 	info   map[string]*FieldInfo //返回某个字段的内容

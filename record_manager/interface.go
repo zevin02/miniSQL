@@ -2,7 +2,7 @@ package record_manager
 
 import fm "miniSQL/file_manager"
 
-//某个表的描述
+//SchemaInterface 某个表的描述
 type SchemaInterface interface {
 	//给表添加一个字段
 	//字段有两种类型，一种是string，一种是int类型
@@ -13,7 +13,7 @@ type SchemaInterface interface {
 	AddAll(sch SchemaInterface)                //把该对象的所有描述都加入进来
 	Fields() []string                          //返回所有字段的名称
 	HashField(fieldName string) bool           //是否有某个字段
-	Type(fieldName string) FIELD_TYPE          //返回某个字段对应的类型
+	Type(fieldName string) FIELD_TYPE          //返回某个字段对应的类型z
 	Length(fieldName string) int               //返回该字段对应列的长度
 }
 
