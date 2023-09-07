@@ -56,5 +56,5 @@ func TestLockTableWithSLockAfterXLockRelease(t *testing.T) {
 		fmt.Println(err_array[i])
 		assert.Nil(t, err_array[i])
 	}
-	assert.Equal(t, int64(3), lockTable.lockMap[blk])
+	assert.Equal(t, int64(3), lockTable.lockMap[*blk])
 }
