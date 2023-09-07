@@ -30,13 +30,13 @@ type LayoutInterface interface {
 
 //RecordManager 记录管理器
 type RecordManager interface {
-	Block() *fm.BlockId                    //当前记录处在的哪个文件块中
-	GetInt(slot int, fieldName string) int //返回该字段的值,给定记录所在的编号和记录的field
-	SetInt(slot int, fieldName string)
-	GetString(slot int, fieldName string) string //返回该字段的值,给定记录所在的编号和记录的field
-	SetString(slot int, fieldName string)
-	Format()         //将所有页面内的记录设置为默认值
-	Delete(slot int) //删除给定编号的记录,只需要把这个占位符设置为无效即可
+	Block() *fm.BlockId                               //当前记录处在的哪个文件块中
+	GetInt(slot int, fieldName string) int            //返回该字段的值,给定记录所在的编号和记录的field
+	SetInt(slot int, fieldName string, val int)       //给某个字段设置数据
+	GetString(slot int, fieldName string) string      //返回该字段的值,给定记录所在的编号和记录的field
+	SetString(slot int, fieldName string, val string) //给某个字段设置string类型数据
+	Format()                                          //将所有页面内的记录设置为默认值
+	Delete(slot int)                                  //删除给定编号的记录,只需要把这个占位符设置为无效即可,设置成0
 	//某一条记录都有一个占位符来表示这个记录是否有效
 	NextAfter(slot int) int   //给出从给定编号之后，flag标志位被设置成1(有效的)的记录的编号
 	InsertAfter(slot int) int //查找给定编号在之后，flag标志设置成0（无效）记录的编号,可以使用该位置进行设置记录
