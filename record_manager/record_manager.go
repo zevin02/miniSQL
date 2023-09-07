@@ -81,7 +81,7 @@ func (r *RecordPage) SetString(slot int, fieldName string, val string) {
 func (r *RecordPage) Format() {
 	slot := 0 //从第一个slot开始进行处理
 	for r.isValidSlot(slot) {
-		r.tx.SetInt(r.blk, r.offset(slot), int64(EMPTY), false) //设置成没有被使用
+		r.tx.SetInt(r.blk, r.offset(slot), int64(EMPTY), false) //设置成没有被使用,同时也不需要生成日志进行回滚
 		sch := r.layout.Schema()                                //获得当前schema，并从中获得他的每个fieldname
 		for _, fieldName := range sch.Fields() {
 			//遍历每个字段
