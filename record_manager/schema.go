@@ -4,7 +4,7 @@ type FIELD_TYPE int
 
 const (
 	INTEGER FIELD_TYPE = iota //整形类型
-	VARCHAR                   //字读串的可变长度
+	VARCHAR                   //字读串的可变长度,最大不能超过65535
 	BLOB                      //二进制类型
 
 )
@@ -23,7 +23,7 @@ func newFieldInfo(fieldType FIELD_TYPE, length int) *FieldInfo {
 	}
 }
 
-//一个表的结构信息
+//Schema 一个表中的一条记录包含哪些字段
 type Schema struct {
 	fields []string              //一个表中有多个字段
 	info   map[string]*FieldInfo //返回某个字段的内容
@@ -45,6 +45,7 @@ func (s *Schema) AddField(fieldName string, fieldType FIELD_TYPE, length int) {
 
 //AddIntField 添加一个int类型的字段
 func (s *Schema) AddIntField(fieldName string) {
+	//对于整形字段来说，长度没有用，都是固定的大小
 	s.AddField(fieldName, INTEGER, 0)
 }
 
@@ -86,7 +87,7 @@ func (s *Schema) HashField(fieldName string) bool {
 
 //Type 返回某个字段对应的类型
 func (s *Schema) Type(fieldName string) FIELD_TYPE {
-	return s.info[fieldName].fieldType
+	return s.info[fieldName].fieldType //从字段的info中返回他的类型
 }
 
 //Length 返回该字段对应列的长度

@@ -9,11 +9,13 @@ const (
 	BYTES_OF_INT = 8 //一个INT占用的字节大小
 )
 
-//Layout 具体的描述某一条记录
+// Layout 和Schema就是数据库表的元数据
+
+//Layout 具体的描述中的各个字段如何在表中进行组织的,计算字段相关信息,在区块的长度，偏移
 type Layout struct {
 	schema   SchemaInterface
-	offsets  map[string]int //每个字段在记录中的偏移
-	slotSize int            //这条记录的长度
+	offsets  map[string]int //每个字段在记录（slot）中的偏移
+	slotSize int            //这条记录的长度,一个slot的大小,头8字节+记录的长度
 }
 
 //NewLayoutWithSchema 使用schema来初始化一个记录
