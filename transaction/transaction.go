@@ -22,13 +22,13 @@ func nextTxNum() int32 {
 
 //Transaction 管理某个事务
 type Transaction struct {
-	myBuffers      *BufferList       //管理当前事务被pin的buffer对象
-	logManager     *lm.LogManager    //日志管理,所有的日志都由该日志管理器的日志记录
-	fileManager    *fm.FileManager   //文件管理
-	recoverManager *RecoveryManager  //恢复管理器,用于事务恢复或者回滚
-	txNum          int32             //当前的事务序列号
-	bufferManager  *bm.BufferManager //缓存管理器,管理当前事务使用缓存
-	//concurrentMgr  ConcurrentManager //管理并发请求
+	myBuffers      *BufferList         //管理当前事务被pin的buffer对象
+	logManager     *lm.LogManager      //日志管理,所有的日志都由该日志管理器的日志记录
+	fileManager    *fm.FileManager     //文件管理
+	recoverManager *RecoveryManager    //恢复管理器,用于事务恢复或者回滚
+	txNum          int32               //当前的事务序列号
+	bufferManager  *bm.BufferManager   //缓存管理器,管理当前事务使用缓存
+	concurrentMgr  *ConcurrencyManager //管理并发请求
 }
 
 //NewTransaction 构造一个事务对象，传入的是文件管理器，缓存管理器，日志管理器
@@ -41,14 +41,20 @@ func NewTransaction(fileManager *fm.FileManager, logManager *lm.LogManager, buff
 		txNum:         nextTxNum(),
 	}
 	//创建同步管理器
+	tx.concurrentMgr = NewConcurrencyManager()
+
 	//创建恢复管理器
 	//当前事务创建，就相当于一个事务启动了,START X
 	tx.recoverManager = NewRecoverManager(tx, tx.txNum, logManager, bufferManager)
 	return tx
 }
 
+//lock point（锁点）：当前事务获得最后一把锁的时间节点,使用两阶段锁可以保证实现事务之间执行的串型化，但是两阶段锁不会确保不会出现死锁，也可能会导致迭代rollback
+
 //Commit 将当前的事务进行提交
 func (t *Transaction) Commit() {
+	//在commit之前把锁给释放掉，收缩阶段(事务必须锁，事务不能在获得锁)的，严格两阶段锁
+	t.concurrentMgr.Realse()
 	t.recoverManager.Commit()
 	r := fmt.Sprintf("transaction %d commited", t.txNum)
 	fmt.Println(r)
@@ -60,6 +66,7 @@ func (t *Transaction) Commit() {
 //RollBack 执行一个回滚操作,好像当前的所有事务没有发生一样,丢弃当前事务，恢复到事务发生之前的状态
 func (t *Transaction) RollBack() {
 	t.recoverManager.RollBack()
+	t.concurrentMgr.Realse() //回滚的时候也需要释放锁
 	r := fmt.Sprintf("transaction %d roll back", t.txNum)
 	fmt.Println(r)
 
@@ -93,7 +100,10 @@ func (t *Transaction) bufferNoExist(blk *fm.BlockId) error {
 //读取数据,直接让强转(int64)
 func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) (int64, error) {
 	//读取数据的时候，调用同步管理器加s类型的锁,加锁的数据范围要尽可能小
-	//t.slock()//加锁没有释放
+	err := t.concurrentMgr.SLock(blk) //加上共享锁
+	if err != nil {
+		return -1, err
+	}
 	buff := t.myBuffers.getBuf(blk)
 	if buff == nil {
 		//当前区块的数据并不存在
@@ -106,6 +116,10 @@ func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) (int64, error) {
 //GetString 从事务中的某个区块的文件中读取数据
 func (t *Transaction) GetString(blk *fm.BlockId, offset uint64) (string, error) {
 	//调用同步管理器加s锁
+	err := t.concurrentMgr.SLock(blk)
+	if err != nil {
+		return "", err
+	} //加上共享锁
 	buff := t.myBuffers.getBuf(blk)
 	if buff == nil {
 		//当前区块的数据并不存在
@@ -116,8 +130,12 @@ func (t *Transaction) GetString(blk *fm.BlockId, offset uint64) (string, error) 
 
 //SetInt okToLog=true会生成记录，为false就不会生成对应的记录
 func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog bool) error {
-	//调用同步管理器的x锁
-	//t.xlock()
+	//使用并发管理器加上排他锁
+	err := t.concurrentMgr.XLock(blk)
+	//如果当前出错的话，就有可能出现死锁，就需要进行回滚，把所有当前的锁给解开
+	if err != nil {
+		return err
+	}
 	buff := t.myBuffers.getBuf(blk)
 	if buff == nil {
 		//当前区块的数据并不存在
@@ -125,7 +143,6 @@ func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog 
 	}
 	//把当前操作作为一个日志记录起来
 	var lsn uint64
-	var err error
 	if okToLog {
 		//生成记录
 		lsn, err = t.recoverManager.SetInt(buff, offset, val) //转发给recovermanager，由他在里面增加这个记录,毕竟是由他来恢复的
@@ -144,7 +161,11 @@ func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog 
 //undo的时候也会调用这个Setstring操作，把数据写入到事务中
 func (t *Transaction) SetString(blk *fm.BlockId, offset uint64, val string, okToLog bool) error {
 	//调用同步管理器的x锁
-	//t.xlock()
+	//在写入的时候使用并发管理器加上排他锁
+	err := t.concurrentMgr.XLock(blk)
+	if err != nil {
+		return err
+	}
 	buff := t.myBuffers.getBuf(blk)
 	if buff == nil {
 		//当前区块的数据并不存在
@@ -152,10 +173,9 @@ func (t *Transaction) SetString(blk *fm.BlockId, offset uint64, val string, okTo
 	}
 	//把当前操作作为一个日志记录起来
 	var lsn uint64
-	var err error
 	if okToLog {
 		//生成记录
-		lsn, err = t.recoverManager.SetString(buff, offset, val) //转发给recovermanager，由他在里面增加这个记录,毕竟是由他来恢复的
+		lsn, err = t.recoverManager.SetString(buff, offset, val) //转发给recoverManager，由他在里面增加这个记录,毕竟是由他来恢复的
 		if err != nil {
 			return err
 		}
@@ -168,17 +188,29 @@ func (t *Transaction) SetString(blk *fm.BlockId, offset uint64, val string, okTo
 }
 
 //Size 获得当前文件占据了多少个block
-func (t *Transaction) Size(filename string) uint64 {
-	//调用S锁
-	//dummy_blk:=fm.newBLockId(filename,uint64(endoffile))
-	//t.concur_mgr.slock(dummmyblk)
+//Size和Append操作是互斥的操作，读写互斥
+func (t *Transaction) Size(filename string) (uint64, error) {
+	//读取当前文件的大小的时候，也是需要调用S锁，共享
+	dummyBlk := fm.NewBlockId(filename, uint64(END_OF_FILE)) //构造一个虚拟的BlockId来进行管理
+	err := t.concurrentMgr.SLock(dummyBlk)
+	//给这个文件区块加共享锁
+	if err != nil {
+		return 0, err
+	}
+
 	s, _ := t.fileManager.Size(filename)
-	return s
+	return s, nil
 }
 
 //Append 给当前事务对应的文件增加一个区块
 func (t *Transaction) Append(filename string) (*fm.BlockId, error) {
 	//调用一个X锁
+	dummyBlk := fm.NewBlockId(filename, uint64(END_OF_FILE)) //构造一个虚拟的BlockId来进行管理
+	err := t.concurrentMgr.XLock(dummyBlk)
+	if err != nil {
+		return nil, err
+	} //给这个文件区块加共享锁
+
 	blk, err := t.fileManager.Append(filename) //给当前文件增加一个区块
 	if err != nil {
 		return nil, err

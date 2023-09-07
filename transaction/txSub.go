@@ -55,12 +55,12 @@ func (t *TxStub) SetString(_ *fm.BlockId, offset uint64, val string, _ bool) err
 	return nil
 }
 
-func (t *TxStub) Size(_ string) uint64 {
-	return 0
+func (t *TxStub) Size(_ string) (uint64, error) {
+	return 0, nil
 }
 
-func (t *TxStub) Append(_ string) *fm.BlockId {
-	return nil
+func (t *TxStub) Append(_ string) (*fm.BlockId, error) {
+	return nil, nil
 }
 
 func (t *TxStub) BlockSize() uint64 {

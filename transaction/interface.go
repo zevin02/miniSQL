@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"math"
 	fm "miniSQL/file_manager"
 )
 
@@ -16,7 +17,7 @@ type TransactionInterface interface {
 	SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog bool) error //是否需要产生日志
 	SetString(blk *fm.BlockId, offset uint64, val string, okToLog bool) error
 	AvailableBuffer() uint64
-	Size(filename string) uint64
+	Size(filename string) (uint64, error)
 	Append(filename string) (*fm.BlockId, error)
 	BlockSize() uint64
 }
@@ -33,7 +34,7 @@ const (
 
 const (
 	UIN64_LENGTH = 8
-	END_OF_FILE  = -1
+	END_OF_FILE  = math.MaxUint32
 )
 
 //LogRecordInterface 各种日志类型
