@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	//假设多个线程要访问同一个区块，第一个线程对这个块进行写入操作，其他的几个要进行读操作，第一个要写操作的线程首先获得了这个互斥锁。其他的就获得共享锁
+	//MAX_WAITING_TIME 假设多个线程要访问同一个区块，第一个线程对这个块进行写入操作，其他的几个要进行读操作，第一个要写操作的线程首先获得了这个互斥锁。其他的就获得共享锁
 	//把要读取数据的线程挂起，
 	MAX_WAITING_TIME = 3 //线程挂起的最长时间
 )
 
+//同一个blockid，我们可以用两个不同的指针去指向这个同一个实例blockid，locktable是要针对同一个blockid进行处理的，所以使用指针做key就不能保证他的唯一性
 type LockTable struct {
 	lockMap    map[*fm.BlockId]int64           //用来实现互斥锁和共享锁，互斥锁：-1,共享锁>0，如果有3个共享该区块，这个值就等于3
 	notifyChan map[*fm.BlockId]chan struct{}   //用于通知挂起的所有线程恢复执行的信号,针对每个blk
@@ -28,6 +29,20 @@ func NewLockTable() *LockTable {
 		notifyWg:   make(map[*fm.BlockId]*sync.WaitGroup),
 	}
 	return lockTable
+}
+
+var lockTableInstance *LockTable //locktable的一个单例对象,全局只有一个的该对象
+var lock = &sync.Mutex{}
+
+//GetLockTableInstance 获得一个Locktable的单例对象
+func GetLockTableInstance() *LockTable {
+	lock.Lock()
+	defer lock.Unlock()
+	if lockTableInstance == nil {
+		//当前实例还没有创建就构造一个对象出来
+		lockTableInstance = NewLockTable()
+	}
+	return lockTableInstance
 }
 
 //initWaitingOnBlk 给某个区块进行初始化,如果已经初始化就不用管，没有初始化就需要进行初始化
