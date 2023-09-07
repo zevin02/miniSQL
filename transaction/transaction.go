@@ -177,13 +177,13 @@ func (t *Transaction) Size(filename string) uint64 {
 }
 
 //Append 给当前事务对应的文件增加一个区块
-func (t *Transaction) Append(filename string) *fm.BlockId {
+func (t *Transaction) Append(filename string) (*fm.BlockId, error) {
 	//调用一个X锁
 	blk, err := t.fileManager.Append(filename) //给当前文件增加一个区块
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &blk
+	return &blk, nil
 
 }
 

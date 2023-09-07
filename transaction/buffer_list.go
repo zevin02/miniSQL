@@ -5,8 +5,8 @@ import (
 	fm "miniSQL/file_manager"
 )
 
-//对pin过的buffer进行简单的管理
-
+//BufferList 对pin过的buffer进行简单的管理
+//一个bufferList对应了一个事务
 type BufferList struct {
 	buffers  map[*fm.BlockId]*bm.Buffer //当前已经pin的Buffer
 	buffeMgr *bm.BufferManager          //缓存管理器
@@ -59,7 +59,7 @@ func (b *BufferList) Unpin(blk *fm.BlockId) {
 }
 
 //UnpinAll unpin掉当前事务使用的所有的缓存页面
-func (b BufferList) UnpinAll() {
+func (b *BufferList) UnpinAll() {
 	for _, blk := range b.pins { //获得所有pin的对象
 		buffer := b.buffers[blk]
 		b.buffeMgr.Unpin(buffer)

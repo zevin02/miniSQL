@@ -17,7 +17,7 @@ type TransactionInterface interface {
 	SetString(blk *fm.BlockId, offset uint64, val string, okToLog bool) error
 	AvailableBuffer() uint64
 	Size(filename string) uint64
-	Append(filename string) *fm.BlockId
+	Append(filename string) (*fm.BlockId, error)
 	BlockSize() uint64
 }
 type RECORD_TYPE uint64
