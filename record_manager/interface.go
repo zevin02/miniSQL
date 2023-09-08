@@ -29,7 +29,7 @@ type LayoutInterface interface {
 }
 
 //RecordManager 记录管理器
-type RecordManager interface {
+type RecordManagerInterface interface {
 	Block() *fm.BlockId                               //当前记录处在的哪个文件块中
 	GetInt(slot int, fieldName string) int            //返回该字段的值,给定记录所在的编号和记录的field
 	SetInt(slot int, fieldName string, val int)       //给某个字段设置数据
