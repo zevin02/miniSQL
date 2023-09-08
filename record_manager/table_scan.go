@@ -114,6 +114,8 @@ func (t *TableScan) SetString(fieldName string, val string) {
 func (t *TableScan) GetInt(fieldName string) int {
 	return t.rp.GetInt(t.currentSlot, fieldName)
 }
+
+//GetString 读取当前slot的string字段
 func (t *TableScan) GetString(fieldName string) string {
 	return t.rp.GetString(t.currentSlot, fieldName)
 }
@@ -121,4 +123,28 @@ func (t *TableScan) GetString(fieldName string) string {
 //Delete 删除当前slot的数据
 func (t *TableScan) Delete() {
 	t.rp.Delete(t.currentSlot)
+}
+
+//GetVal 获得当前slot的数据（不管是int还是string都能正确得到）
+func (t *TableScan) GetVal(fieldName string) *Constant {
+	if t.layout.Schema().Type(fieldName) == INTEGER {
+		//当前这个字段是int类型
+		return NewConstantInt(t.GetInt(fieldName)) //将当前
+	}
+	//否则就是一个string类型的变量
+	return NewConstantString(t.GetString(fieldName)) //将当前
+}
+
+//HashField 判断某个字段是否在表中存在
+func (t *TableScan) HashField(fieldName string) bool {
+	return t.layout.Schema().HashField(fieldName)
+}
+
+//SetVal 往当前slot中添加数据，不管是int还是string都能正确添加
+func (t *TableScan) SetVal(fieldName string, val *Constant) {
+	if t.layout.Schema().Type(fieldName) == INTEGER {
+		t.SetInt(fieldName, val.Ival) //插入当前对象的int类型数据
+	} else {
+		t.SetString(fieldName, val.Sval) //插入当前对象的string类型的数据
+	}
 }

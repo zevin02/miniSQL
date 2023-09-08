@@ -42,3 +42,11 @@ type RecordManagerInterface interface {
 	InsertAfter(slot int) int //查找给定编号在之后，flag标志设置成0（无效）记录的编号,可以使用该位置进行设置记录
 
 }
+
+//RIDInterface 区块槽位管理
+type RIDInterface interface {
+	BlockNumber() int //记录所在的区块号
+	Slot() int        //记录的插槽号
+	Equals(other RIDInterface) bool
+	ToString() string
+}
