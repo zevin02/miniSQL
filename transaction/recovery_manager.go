@@ -40,7 +40,10 @@ func (r *RecoveryManager) Commit() error {
 		return err
 	}
 	//将commit日志及之前的数据刷新到磁盘中（不仅包含这个事务的日志）
-	r.logManager.FlushByLSN(lsn) //把比当前日志小的数据都刷新到磁盘中
+	err = r.logManager.FlushByLSN(lsn)
+	if err != nil {
+		return err
+	} //把比当前日志小的数据都刷新到磁盘中
 	return nil
 }
 
@@ -70,12 +73,15 @@ func (r *RecoveryManager) Recover() error {
 		return err
 	}
 	//同样是要把当前日志到刷新到磁盘中
-	r.logManager.FlushByLSN(lsn)
+	err = r.logManager.FlushByLSN(lsn)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 //SetInt 写入当前的日志，并且返回当前日志对应的区块号
-func (r *RecoveryManager) SetInt(buff *bm.Buffer, offset uint64, newVal int64) (uint64, error) {
+func (r *RecoveryManager) SetInt(buff *bm.Buffer, offset uint64, _ int64) (uint64, error) {
 	//先获得当前写入之前的数据
 	oldVal := buff.Contents().GetInt(offset)
 	blk := buff.Block()                                                       //获得当前buff对应的block信息
@@ -83,7 +89,7 @@ func (r *RecoveryManager) SetInt(buff *bm.Buffer, offset uint64, newVal int64) (
 }
 
 //SetString 写入当前的日志，并且返回当前日志对应的区块号
-func (r *RecoveryManager) SetString(buff *bm.Buffer, offset uint64, newVal string) (uint64, error) {
+func (r *RecoveryManager) SetString(buff *bm.Buffer, offset uint64, _ string) (uint64, error) {
 	//先获得当前写入之前的数据
 	oldVal := buff.Contents().GetString(offset)
 	blk := buff.Block()                                                          //获得当前buff对应的block信息

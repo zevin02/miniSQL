@@ -55,44 +55,59 @@ func NewTransaction(fileManager *fm.FileManager, logManager *lm.LogManager, buff
 func (t *Transaction) Commit() {
 	//在commit之前把锁给释放掉，收缩阶段(事务必须锁，事务不能在获得锁)的，严格两阶段锁
 	t.concurrentMgr.Realse()
-	t.recoverManager.Commit()
+	err := t.recoverManager.Commit()
+	if err != nil {
+		return
+	}
 	r := fmt.Sprintf("transaction %d commited", t.txNum)
 	fmt.Println(r)
-	//TODO 释放同步管理器
 	//执行commit之后，当前事务就全部完成了，所有的数据都会写入到磁盘中去，将当前用于存储当前缓存页全部进行解锁，解引用
 	t.myBuffers.UnpinAll()
 }
 
 //RollBack 执行一个回滚操作,好像当前的所有事务没有发生一样,丢弃当前事务，恢复到事务发生之前的状态
-func (t *Transaction) RollBack() {
-	t.recoverManager.RollBack()
+func (t *Transaction) RollBack() error {
+	err := t.recoverManager.RollBack()
+	if err != nil {
+		return err
+	}
 	t.concurrentMgr.Realse() //回滚的时候也需要释放锁
 	r := fmt.Sprintf("transaction %d roll back", t.txNum)
 	fmt.Println(r)
 
 	//同样也是要释放同步管理器
 	t.myBuffers.UnpinAll() //释放当前事务的所有缓存页
+	return nil
 }
 
 //Recover 系统启动的时候，会在所有事务执行前，运行该函数
 //系统启动的时候发现上一次的事务在执行到一半的时候，发生崩溃或者断电了，数据写到一半，启动之后，就要将写到一半的数据给抹掉，恢复到写入之前的状态
-func (t *Transaction) Recover() {
+func (t *Transaction) Recover() error {
 	t.bufferManager.FlushAll(t.txNum) //把当前事务还没有处理完的数据全部写入到磁盘
-	t.recoverManager.Recover()
+	err := t.recoverManager.Recover()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (t *Transaction) Pin(blk *fm.BlockId) {
-	t.myBuffers.Pin(blk) //调用pin进行管理,
+func (t *Transaction) Pin(blk *fm.BlockId) error {
+	err := t.myBuffers.Pin(blk)
+	if err != nil {
+		return err
+	} //调用pin进行管理,
+	return nil
 }
 
-func (t *Transaction) Unpin(blk *fm.BlockId) {
+func (t *Transaction) Unpin(blk *fm.BlockId) error {
 	t.myBuffers.Unpin(blk) //调用pin进行管理
+	return nil
 }
 
 //bufferNoExist 缓存不存在
 func (t *Transaction) bufferNoExist(blk *fm.BlockId) error {
-	err_s := fmt.Sprintf("No Buffer found  for given blk %d with filename: %s\n", blk.Number(), blk.FileName())
-	err := errors.New(err_s)
+	errS := fmt.Sprintf("No Buffer found  for given blk %d with filename: %s\n", blk.Number(), blk.FileName())
+	err := errors.New(errS)
 	return err
 }
 

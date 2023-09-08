@@ -8,10 +8,10 @@ import (
 //TransactionInterface 事务类型的接口
 type TransactionInterface interface {
 	Commit()
-	RollBack()
-	Recover()
-	Pin(blk *fm.BlockId)
-	Unpin(blk *fm.BlockId)
+	RollBack() error
+	Recover() error
+	Pin(blk *fm.BlockId) error
+	Unpin(blk *fm.BlockId) error
 	GetInt(blk *fm.BlockId, offset uint64) (int64, error) //读取数据,直接让强转(int64)
 	GetString(blk *fm.BlockId, offset uint64) (string, error)
 	SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog bool) error //是否需要产生日志

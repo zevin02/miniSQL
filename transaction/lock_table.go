@@ -143,8 +143,9 @@ func (l *LockTable) Slock(blk *fm.BlockId) error {
 	}
 	//Xlock已经被释放了
 	//共享锁是可以同时作用在这个区块上的
-	val := l.getLockVal(blk)  //拿到锁对应的数值
-	l.lockMap[*blk] = val + 1 //共享锁+1
+	//val := l.getLockVal(blk)  //拿到锁对应的数值
+	//l.lockMap[*blk] = val + 1 //共享锁+1
+	l.incSlock(blk)
 	return nil
 }
 
@@ -167,6 +168,18 @@ func (l *LockTable) Xlock(blk *fm.BlockId) error {
 	}
 	l.lockMap[*blk] = -1 //-1表示互斥锁
 	return nil
+}
+
+//IncSlockWithLock 增加Slock锁的引用计数
+func (l *LockTable) IncSlockWithLock(blk *fm.BlockId) {
+	l.methodLock.Lock()
+	defer l.methodLock.Unlock()
+	l.incSlock(blk)
+}
+
+func (l *LockTable) incSlock(blk *fm.BlockId) {
+	val := l.getLockVal(blk)  //拿到锁对应的数值
+	l.lockMap[*blk] = val + 1 //共享锁+1
 }
 
 func (l *LockTable) UnLock(blk *fm.BlockId) {

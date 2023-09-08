@@ -21,20 +21,20 @@ func (t *TxStub) Commit() {
 
 }
 
-func (t *TxStub) RollBack() {
-
+func (t *TxStub) RollBack() error {
+	return nil
 }
 
-func (t *TxStub) Recover() {
-
+func (t *TxStub) Recover() error {
+	return nil
 }
 
-func (t *TxStub) Pin(_ *fm.BlockId) {
-
+func (t *TxStub) Pin(_ *fm.BlockId) error {
+	return nil
 }
 
-func (t *TxStub) Unpin(_ *fm.BlockId) {
-
+func (t *TxStub) Unpin(_ *fm.BlockId) error {
+	return nil
 }
 func (t *TxStub) GetInt(_ *fm.BlockId, offset uint64) (int64, error) {
 
