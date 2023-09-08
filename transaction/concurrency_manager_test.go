@@ -77,7 +77,7 @@ func TestConcurrencyManager(t *testing.T) {
 		err = txC.SetInt(blk1, 0, 0, false) //往blk2中写入数据
 		assert.Nil(t, err)
 
-		fmt.Println("TX ,receive slock 1")
+		fmt.Println("TX C,receive slock 1")
 		time.Sleep(1 * time.Second) //把当前的线程启动起来
 		//获得S锁
 		fmt.Println("TX c request slock 2")

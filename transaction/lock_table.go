@@ -157,11 +157,11 @@ func (l *LockTable) Xlock(blk *fm.BlockId) error {
 	l.initWaitingOnBlk(blk)
 	start := time.Now()
 	//读读不互斥，读写互斥,写写互斥
-	for l.hashSlock(blk) && !l.waitTooLong(start) {
+	for l.hashOtherSlock(blk) && !l.waitTooLong(start) {
 		//如果当前区块已经有共享锁，同时等待没有超时
 		l.waitGivenTimeOut(blk) //挂起等待给定的时间,等待锁的释放
 	}
-	if l.hashSlock(blk) {
+	if l.hashOtherSlock(blk) {
 		//共享锁还没有释放，可能出现了死锁,当前操作就需要放弃
 		fmt.Println("xlock fail for slock")
 		return errors.New("Xlock Exception:Slock on given blk")
@@ -203,9 +203,9 @@ func (l *LockTable) hasXlock(blk *fm.BlockId) bool {
 	return l.getLockVal(blk) < 0
 }
 
-//hashSlock 判断是否有Slock加在某个区块上
-func (l *LockTable) hashSlock(blk *fm.BlockId) bool {
-	return l.getLockVal(blk) > 0
+//hashOtherSlock 判断是否有其他的事务也使用该读锁,如果=1说明是我们当前事务自己使用的
+func (l *LockTable) hashOtherSlock(blk *fm.BlockId) bool {
+	return l.getLockVal(blk) > 1 //如果=1说明是我们自己得到的
 }
 
 //waitTooLong 判断是否等待超时了

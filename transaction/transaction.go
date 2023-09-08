@@ -220,7 +220,7 @@ func (t *Transaction) Size(filename string) (uint64, error) {
 //Append 给当前事务对应的文件增加一个区块
 func (t *Transaction) Append(filename string) (*fm.BlockId, error) {
 	//调用一个X锁
-	dummyBlk := fm.NewBlockId(filename, uint64(END_OF_FILE)) //构造一个虚拟的BlockId来进行管理
+	dummyBlk := fm.NewBlockId(filename, END_OF_FILE) //构造一个虚拟的BlockId来进行管理
 	err := t.concurrentMgr.XLock(dummyBlk)
 	if err != nil {
 		return nil, err

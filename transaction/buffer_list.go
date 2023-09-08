@@ -10,7 +10,7 @@ import (
 type BufferList struct {
 	buffers  map[*fm.BlockId]*bm.Buffer //当前已经pin的Buffer
 	buffeMgr *bm.BufferManager          //缓存管理器
-	pins     []*fm.BlockId              //所以已经被pin的blockId都存储起来
+	pins     []*fm.BlockId              //所以已经被pin的blockId都存储起来,todo check whether a transaction pin same buffer multiple times
 }
 
 //NewBufferList 构造一个BufferList
