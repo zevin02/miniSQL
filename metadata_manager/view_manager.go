@@ -19,6 +19,7 @@ type ViewManager struct {
 	tblgr *TableManager
 }
 
+//NewViewManager 创建一个视图管理器
 func NewViewManager(isNew bool, tblgr *TableManager, tx *tx.Transaction) (*ViewManager, error) {
 	viewManager := &ViewManager{
 		tblgr: tblgr,
@@ -26,9 +27,9 @@ func NewViewManager(isNew bool, tblgr *TableManager, tx *tx.Transaction) (*ViewM
 	if isNew {
 		//当前的视图管理器还没有被创建出来
 		sch := rm.NewSchema()
-		sch.AddStringField("viewname", MAX_NAME)
-		sch.AddStringField("viewdef", MAX_VIEWDEF)
-		err := tblgr.CreateTable("viewcat", sch, tx)
+		sch.AddStringField("viewname", MAX_NAME)     //当前视图的名字
+		sch.AddStringField("viewdef", MAX_VIEWDEF)   //当前视图定义其使用的sql语句
+		err := tblgr.CreateTable("viewcat", sch, tx) //创建一张viewcat表，存储视图数据
 		if err != nil {
 			return nil, err
 		} //创建视图管理器表出来
@@ -47,10 +48,12 @@ func (v *ViewManager) CreateView(vname string, vdef string, tx *tx.Transaction) 
 	if err != nil {
 		return err
 	}
+
+	defer ts.Close()
+	//向当前的表中插入一条数据
 	ts.Insert() //获得一个可用的槽位
 	ts.SetString("viewname", vname)
 	ts.SetString("viewdef", vdef)
-	ts.Close()
 	return nil
 }
 
@@ -66,6 +69,8 @@ func (v *ViewManager) GetViewDef(vname string, tx *tx.Transaction) (string, erro
 	if err != nil {
 		return "", err
 	}
+
+	defer ts.Close()
 	for ts.Next() {
 		//遍历这张表
 		if ts.GetString("viewname") == vname {
@@ -74,6 +79,5 @@ func (v *ViewManager) GetViewDef(vname string, tx *tx.Transaction) (string, erro
 			break
 		}
 	}
-	ts.Close()
 	return result, nil
 }
