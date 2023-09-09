@@ -20,20 +20,23 @@ const (
 	USED                   //描述当前slot已经被使用了
 )
 
-//使用recordManager来管理记录在页面中的存储
+//RecordPage 使用recordManager来管理记录在页面中的存储
 type RecordPage struct {
 	tx     *tx.Transaction //使用一个事务，保证数据的原子性和可恢复性
 	blk    *fm.BlockId     //管理的是哪个页面
 	layout LayoutInterface //当前管理的某个表，每个字段的管理
 }
 
-//NewRecordPage 构造一个recordpage对象来管理
+//NewRecordPage 构造一个RecordPage对象来管理日志块
 func NewRecordPage(tx *tx.Transaction, blk *fm.BlockId, layout LayoutInterface) *RecordPage {
-	return &RecordPage{
+	rp := &RecordPage{
 		tx:     tx,
 		blk:    blk,
 		layout: layout,
 	}
+	//把当前的blk给占用
+	tx.Pin(blk)
+	return rp
 }
 
 //获得当前slot在当前block的偏移位置
@@ -79,8 +82,8 @@ func (r *RecordPage) SetString(slot int, fieldName string, val string) {
 //Format 将所有页面内的记录设置为默认值,将记录设置成默认的值，int类型就设置成0,string类型就设置成“”
 //把所有slot都设置为没有被使用
 func (r *RecordPage) Format() {
-	slot := 0 //从第一个slot开始进行处理
-	for r.isValidSlot(slot) {
+	slot := 0                 //从第一个slot开始进行处理
+	for r.isValidSlot(slot) { //保证当前的blk被pin了
 		r.tx.SetInt(r.blk, r.offset(slot), int64(EMPTY), false) //设置成没有被使用,同时也不需要生成日志进行回滚
 		sch := r.layout.Schema()                                //获得当前schema，并从中获得他的每个fieldname
 		for _, fieldName := range sch.Fields() {
@@ -119,6 +122,7 @@ func (r *RecordPage) InsertAfter(slot int) int {
 	return newSlot
 }
 
+//setFlag 给某个slot设置标记位
 func (r *RecordPage) setFlag(slot int, flag SLOT_FLAG) {
 	r.tx.SetInt(r.blk, r.offset(slot), int64(flag), true) //获得他的偏移即可，因为头8字节就是这个record占位符
 }
@@ -129,7 +133,7 @@ func (r *RecordPage) isValidSlot(slot int) bool {
 	return r.offset(slot+1) <= r.tx.BlockSize() //只要下一条记录的开始不超过一个block块大小即可
 }
 
-//找到当前slot后面符合flag标志的slot
+//searchAfter 找到当前slot后面符合flag标志的slot
 func (r *RecordPage) searchAfter(slot int, flag SLOT_FLAG) int {
 	slot += 1
 	for r.isValidSlot(slot) {

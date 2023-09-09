@@ -28,7 +28,7 @@ type LayoutInterface interface {
 	SlotSize() int               //返回某个记录占用了多少个字节
 }
 
-//RecordManager 记录管理器
+//RecordManagerInterface 记录管理器
 type RecordManagerInterface interface {
 	Block() *fm.BlockId                               //当前记录处在的哪个文件块中
 	GetInt(slot int, fieldName string) int            //返回该字段的值,给定记录所在的编号和记录的field
@@ -49,4 +49,20 @@ type RIDInterface interface {
 	Slot() int        //记录的插槽号
 	Equals(other RIDInterface) bool
 	ToString() string
+}
+
+type TableScanInterface interface {
+	Close()
+	HasField(fieldName string) bool
+	BeforeFirst()             //将指针放在第一条记录前
+	Next() bool               //读取下一条记录
+	MoveToRid(r RIDInterface) //跳转到给定目录
+	Insert()
+
+	GetInt(fieldName string) int
+	GetString(fieldName string) string
+	SetInt(fieldName string, val int)
+	SetString(fieldName string, val string)
+	GetRid() RIDInterface
+	Delete()
 }

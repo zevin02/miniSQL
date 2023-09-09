@@ -1,6 +1,7 @@
 package record_manager
 
 import (
+	"fmt"
 	fm "miniSQL/file_manager"
 	tx "miniSQL/transaction"
 )
@@ -41,25 +42,45 @@ func NewTableScan(tx *tx.Transaction, tableName string, layout LayoutInterface) 
 //Move2NewBlock 给当前文件增加一个区块上来
 func (t *TableScan) Move2NewBlock() error {
 	t.Close()                           //
-	blk, err := t.tx.Append(t.fileName) //当前事务给这个文件增加一个区块
+	blk, err := t.tx.Append(t.fileName) //当前事务给这个文件增加一个区块,但是他的锁被占用了
 	if err != nil {
 		return err
 	}
 	//给日志管理器放入一个新的区块
 	t.rp = NewRecordPage(t.tx, blk, t.layout) //在当前事务中，对blk的record进行管理
-	t.currentSlot = -1                        //当前还没有进行任何查找有效的数据
+	t.rp.Format()
+	t.currentSlot = -1 //当前还没有进行任何查找有效的数据
 	return nil
 }
 
-//BeforeFisrt 在第一次读取之前进行调用
-func (t *TableScan) BeforeFisrt() {
+//Next 更新到下一个可用的slot
+func (t *TableScan) Next() bool {
+	//如果当前区块找不到给定有效的记录，就去遍历后续的区块，知道所有的区块都被遍历完成了
+	t.currentSlot = t.rp.NextAfter(t.currentSlot) //获得当前slot后的有效slot
+	for t.currentSlot < 0 {
+		//循环遍历，知道找到相应的块，或者遍历结束，否则就继续遍历
+		if t.AtLastBlock() {
+			//说明当前区块已经被遍历完成了
+
+			fmt.Println("end of next")
+			//已经遍历到最后一个区块了
+			return false
+		}
+		t.Move2Block(int(t.rp.Block().Number() + 1))  //读取下一个区块
+		t.currentSlot = t.rp.NextAfter(t.currentSlot) //更新当前的slot
+	}
+	return true
+}
+
+//BeforeFirst 在第一次读取之前进行调用
+func (t *TableScan) BeforeFirst() {
 	t.Move2Block(0) //
 }
 
 //Close 释放掉当前日志管理器中的区块
 func (t *TableScan) Close() {
 	if t.rp != nil {
-		t.tx.Unpin(t.rp.Block()) //将当前的日志管理器管理的blk给释放掉
+		t.tx.Unpin(t.rp.Block()) //将当前的日志管理器管理的blk给释放掉,因为现在已经要开辟一个新的blk块，不再使用这个blk了
 	}
 }
 
@@ -68,7 +89,6 @@ func (t *TableScan) Move2Block(blkNum int) {
 	t.Close()
 	blk := fm.NewBlockId(t.fileName, uint64(blkNum)) //构造一个新的区块
 	t.rp = NewRecordPage(t.tx, blk, t.layout)        //更新日志管理器,之前日志管理器的
-	t.rp.Format()                                    //将当前块进行初始化
 	t.currentSlot = -1
 }
 
@@ -135,8 +155,8 @@ func (t *TableScan) GetVal(fieldName string) *Constant {
 	return NewConstantString(t.GetString(fieldName)) //将当前
 }
 
-//HashField 判断某个字段是否在表中存在
-func (t *TableScan) HashField(fieldName string) bool {
+//HasField 判断某个字段是否在表中存在
+func (t *TableScan) HasField(fieldName string) bool {
 	return t.layout.Schema().HashField(fieldName)
 }
 
@@ -147,4 +167,17 @@ func (t *TableScan) SetVal(fieldName string, val *Constant) {
 	} else {
 		t.SetString(fieldName, val.Sval) //插入当前对象的string类型的数据
 	}
+}
+
+//GetRid 返回当前区块管理器管理到了哪个文件区块的哪个slot记录
+func (t *TableScan) GetRid() RIDInterface {
+	return NewRID(int(t.rp.Block().Number()), t.currentSlot)
+}
+
+//MoveToRid 跳转到指定的区块槽位上
+func (t *TableScan) MoveToRid(r RIDInterface) {
+	t.Close() //把之前区块的数据都解除
+	blk := fm.NewBlockId(t.fileName, uint64(r.BlockNumber()))
+	t.rp = NewRecordPage(t.tx, blk, t.layout)
+	t.currentSlot = r.Slot()
 }

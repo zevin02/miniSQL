@@ -121,7 +121,7 @@ func (b *BufferManager) waitingTooLong(start time.Time) bool {
 func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 	buff := b.findExistingBuffer(blk) //在buffer管理器中检查给定区块是否已经被读取到缓冲区中了
 	if buff == nil {
-		//当前区块没有被读取到，那么就需要去将当前区块从磁盘中读取上来
+		//当前区块没有被读取到，那么就需要去将当前区块从磁盘中读取上来,在这里如果缓存已经满了，就需要执行页面替换
 		buff = b.chooseUnpinBuffer() //查看是否还有可用的缓存页面，有的话， 就的可以得到当前的buffer块，同时需要将给定磁盘数据写入缓存中,
 		if buff == nil {
 			//没有找到可用的缓存页面
@@ -138,6 +138,7 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 	return buff
 }
 
+//TODO 进行LRU内存淘汰
 //findExistingBuffer 检查需要的blockid是否已经存在了
 func (b *BufferManager) findExistingBuffer(blk *fm.BlockId) *Buffer {
 	for _, buffer := range b.bufferPool {
