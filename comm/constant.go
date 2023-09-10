@@ -2,7 +2,7 @@ package comm
 
 import "strconv"
 
-//Constant 用户可以不用指定string或者int类型数据的插入
+//Constant 用户可以不用指定string或者int类型数据的插入,这个可以表示一个常量
 type Constant struct {
 	Ival *int
 	Sval *string
