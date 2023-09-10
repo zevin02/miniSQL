@@ -20,13 +20,14 @@ func TestMetaDataManager(t *testing.T) {
 	sch := rm.NewSchema()
 	sch.AddIntField("A")
 	sch.AddStringField("B", 9)
+
 	mdm, err := NewMetaDataManager(true, tx)
 	assert.Nil(t, err)
 	mdm.CreateTable("mytable", sch, tx) //创建一张表
 
 	layout := rm.NewLayoutWithSchema(sch)
 	size := layout.SlotSize()
-	fmt.Println("mytable has slot size :", size)
+	assert.Equal(t, 33, size)
 	sch2 := layout.Schema() //从layout中获得对应的表结构
 	for _, fldName := range sch2.Fields() {
 		fldType := ""
@@ -34,7 +35,7 @@ func TestMetaDataManager(t *testing.T) {
 			fldType = "int"
 		} else {
 			strlen := sch2.Length(fldName)
-			fldType = fmt.Sprintf("varchar (%d )", strlen)
+			fldType = fmt.Sprintf("varchar (%d)", strlen)
 		}
 		fmt.Printf("%s : %s\n", fldName, fldType)
 	}
@@ -49,8 +50,8 @@ func TestMetaDataManager(t *testing.T) {
 	//统计元数据
 	si, err := mdm.GetStatInfo("mytable", layout, tx)
 	assert.Nil(t, err)
-	fmt.Println("block for mytable is ", si.BLockAccessed())
-	fmt.Println("record for mytable is ", si.RecordsOutput())
+	assert.Equal(t, 5, si.BLockAccessed())
+	assert.Equal(t, 50, si.RecordsOutput())
 	fmt.Println("distinct for a mytable is ", si.DistinctValue("A"))
 	fmt.Println("distinct for b mytable is ", si.DistinctValue("B"))
 	//统计视图信息

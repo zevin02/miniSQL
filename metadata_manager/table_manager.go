@@ -53,7 +53,7 @@ func NewTableManager(isNew bool, tx *tx.Transaction) (*TableManager, error) {
 	return tbMgr, nil
 }
 
-//CreateTable 创建一张表，并添加到tbcat和fldcat两张表进行管理
+//CreateTable 创建一张表，并添加到tbcat和fldcat两张表进行管理,在创建表之前首先保证tblcat和fldcat两张元数据表存在
 func (t *TableManager) CreateTable(tblName string, schema *rm.Schema, tx *tx.Transaction) error {
 	layout := rm.NewLayoutWithSchema(schema)
 	tcat, err := rm.NewTableScan(tx, "tblcat", t.tcatLayout) //开辟一张表
@@ -69,13 +69,14 @@ func (t *TableManager) CreateTable(tblName string, schema *rm.Schema, tx *tx.Tra
 	if err != nil {
 		return err
 	}
+	defer fcat.Close() //打开一个scan后要即使关闭这个，否则就阻塞住了
 	for _, fieldName := range schema.Fields() {
 		fcat.Insert() //在该表中添加一个槽位
 		//把表的每个记录都添加到表中
 		fcat.SetString("tblname", tblName)
 		fcat.SetString("fldname", fieldName)
 		fcat.SetInt("type", int(schema.Type(fieldName))) //从schema中获得某个fiedld类型
-		fcat.SetInt("length", int(schema.Length(fieldName)))
+		fcat.SetInt("length", schema.Length(fieldName))
 		fcat.SetInt("offset", layout.Offset(fieldName))
 	}
 	//以后我们就需要从这两个表中，将特定的记录拿出来
