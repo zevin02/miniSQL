@@ -49,7 +49,8 @@ func (s *StatInfo) DistinctValue(fldName string) int {
 	return 1 + (s.numRecs / 3)
 }
 
-//StatManager 状态管理器，管理当前数据库的状态
+//StatManager 状态管理器，管理当前数据库的状态,他只在系统启动的时候创建，在创建的时候，会调用refreshStatistics来创建统计数据并存储在内存中
+
 type StatManager struct {
 	tblgr      *TableManager
 	tableStats map[string]*StatInfo //管理每张表的信息
@@ -74,7 +75,7 @@ func NewStatManager(tblgr *TableManager, tx *tx.Transaction) (*StatManager, erro
 func (s *StatManager) refreshStatistics(tx *tx.Transaction) error {
 	s.tableStats = make(map[string]*StatInfo)
 	s.numCalls = 0
-	layout, _ := s.tblgr.GetLayout("tblcat", tx)     //获得tblcat表
+	layout, _ := s.tblgr.GetLayout("tblcat", tx)     //获得tblcat表，通过这张表，可以得到每张表的名字
 	tcat, _ := rm.NewTableScan(tx, "tblcat", layout) //对tblcat表进行读写操作
 	for tcat.Next() {
 		tblName := tcat.GetString("tblname")             //获得表名

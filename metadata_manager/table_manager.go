@@ -21,6 +21,7 @@ type TableManager struct {
 
 }
 
+//NewTableManager isnew=TRUE 表明当前的表管理器是第一次创建的，就需要创建两张元数据表
 func NewTableManager(isNew bool, tx *tx.Transaction) (*TableManager, error) {
 	//这个对象是一个单例,第一次进来才要创建这两张表
 	tbMgr := &TableManager{}

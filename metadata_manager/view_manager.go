@@ -19,7 +19,7 @@ type ViewManager struct {
 	tblgr *TableManager
 }
 
-//NewViewManager 创建一个视图管理器
+//NewViewManager 创建一个视图管理器,当前表就两个字段，【viewname,viewdef】
 func NewViewManager(isNew bool, tblgr *TableManager, tx *tx.Transaction) (*ViewManager, error) {
 	viewManager := &ViewManager{
 		tblgr: tblgr,
