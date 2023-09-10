@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
-	bm "miniSQL/bufferManager"
+	bm "miniSQL/buffer_manager"
 	fm "miniSQL/file_manager"
 	lm "miniSQL/logManager"
 	rm "miniSQL/record_manager"

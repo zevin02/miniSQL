@@ -3,7 +3,7 @@ package transaction
 import (
 	"errors"
 	"fmt"
-	bm "miniSQL/bufferManager"
+	bm "miniSQL/buffer_manager"
 	fm "miniSQL/file_manager"
 	lm "miniSQL/logManager"
 	"sync"

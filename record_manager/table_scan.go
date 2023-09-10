@@ -2,11 +2,12 @@ package record_manager
 
 import (
 	"fmt"
+	"miniSQL/comm"
 	fm "miniSQL/file_manager"
 	tx "miniSQL/transaction"
 )
 
-//TableScan 对一张表进行读写操作
+//TableScan 对一张表进行读写操作,将表当作一个大的数组进行操作，
 type TableScan struct {
 	tx          *tx.Transaction        //使用一个事务来进行出来操作
 	layout      LayoutInterface        //管理当条记录
@@ -146,13 +147,15 @@ func (t *TableScan) Delete() {
 }
 
 //GetVal 获得当前slot的数据（不管是int还是string都能正确得到）
-func (t *TableScan) GetVal(fieldName string) *Constant {
+func (t *TableScan) GetVal(fieldName string) *comm.Constant {
 	if t.layout.Schema().Type(fieldName) == INTEGER {
 		//当前这个字段是int类型
-		return NewConstantInt(t.GetInt(fieldName)) //将当前
+		val := t.GetInt(fieldName)
+		return comm.NewConstantInt(&val) //将当前
 	}
 	//否则就是一个string类型的变量
-	return NewConstantString(t.GetString(fieldName)) //将当前
+	val := t.GetString(fieldName)
+	return comm.NewConstantString(&val) //将当前
 }
 
 //HasField 判断某个字段是否在表中存在
@@ -161,11 +164,11 @@ func (t *TableScan) HasField(fieldName string) bool {
 }
 
 //SetVal 往当前slot中添加数据，不管是int还是string都能正确添加
-func (t *TableScan) SetVal(fieldName string, val *Constant) {
+func (t *TableScan) SetVal(fieldName string, val *comm.Constant) {
 	if t.layout.Schema().Type(fieldName) == INTEGER {
-		t.SetInt(fieldName, val.Ival) //插入当前对象的int类型数据
+		t.SetInt(fieldName, *val.Ival) //插入当前对象的int类型数据
 	} else {
-		t.SetString(fieldName, val.Sval) //插入当前对象的string类型的数据
+		t.SetString(fieldName, *val.Sval) //插入当前对象的string类型的数据
 	}
 }
 

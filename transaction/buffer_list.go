@@ -1,7 +1,7 @@
 package transaction
 
 import (
-	bm "miniSQL/bufferManager"
+	bm "miniSQL/buffer_manager"
 	fm "miniSQL/file_manager"
 )
 
