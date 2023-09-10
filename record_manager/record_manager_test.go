@@ -67,6 +67,7 @@ func TestRecordPage(t *testing.T) {
 	}
 	fmt.Printf("%d values under 25 were deleted\n", count)
 	fmt.Println("Here are the remain records")
+	slot = rp.NextAfter(-1)
 	for slot >= 0 {
 		a := rp.GetInt(slot, "A")
 		b := rp.GetString(slot, "B")
