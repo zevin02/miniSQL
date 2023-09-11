@@ -5,6 +5,7 @@ type Tag uint32
 //添加一些sql的关键字token最基础的sql的词
 const (
 	AND Tag = iota + 256
+	OR
 	EQ
 	FALSE
 	TRUE
@@ -90,7 +91,7 @@ func init() {
 	token_map[PLUS] = "+"
 	token_map[NE] = "!="
 	token_map[NUM] = "NUM"
-	//token_map[OR] = "OR"
+	token_map[OR] = "OR"
 	token_map[REAL] = "REAL"
 	token_map[TRUE] = "TRUE"
 	token_map[AND_OPERATOR] = "&"
@@ -111,7 +112,7 @@ func init() {
 //Token 管理全局的一些token的使用
 type Token struct {
 	tag    Tag
-	lexeme string
+	lexeme string //关键字
 }
 
 func NewToken(tag Tag) *Token {
@@ -128,6 +129,7 @@ func NewTokenWithString(tag Tag, lexeme string) *Token {
 	}
 }
 
+//ToString 放回这个token对应的关键字
 func (t *Token) ToString() string {
 	if t.lexeme == "" {
 		return token_map[t.tag]
