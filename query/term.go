@@ -19,7 +19,7 @@ func NewTerm(lhs *Expression, rhs *Expression) *Term {
 	}
 }
 
-//IsSatisfied 如果是字段就查表拿到这个字段的值，如果是常量就直接获得这个值，判读这两个对应的值是否相同
+//IsSatisfied 如果是字段就查表拿到这个字段的值，如果是常量就直接获得这个值，判读这两个对应的值是否相同,判断是否符合条件
 func (t *Term) IsSatisfied(s Scan) bool {
 	//evaluate获得的是一个常量对象，所以可以直接比较
 	lhsVal := t.lhs.Evaluate(s)
@@ -49,6 +49,8 @@ func (t *Term) EquatesWithField(fieldName string) string {
 	return ""
 }
 
+//EquatesWithConstant 查询给定的字段相等的一个常数
+//pid=20,fieldName=pid，返回=20
 func (t *Term) EquatesWithConstant(fieldName string) *comm.Constant {
 	if t.lhs.IsFieldName() && t.lhs.AsFieldName() == fieldName && !t.rhs.IsFieldName() {
 		return t.rhs.AsConstant() //左边是字段，右边是一个常量，左边字段和给定的字段相同，我们返回右边的常量

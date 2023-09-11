@@ -25,7 +25,7 @@ func newFieldInfo(fieldType FIELD_TYPE, length int) *FieldInfo {
 
 //Schema 一个表中的一条记录包含哪些字段
 type Schema struct {
-	fields []string              //一个表中有多个字段
+	fields []string              //一个表中有多个字段,todo 有相同名字的字段
 	info   map[string]*FieldInfo //返回某个字段的内容
 }
 
@@ -64,7 +64,7 @@ func (s *Schema) Add(fieldName string, sch SchemaInterface) {
 //AddAll 把该对象的所有描述都加入进来
 func (s *Schema) AddAll(sch SchemaInterface) {
 	//将给定的sch的所有对象全部添加到当前的表中哦
-	fields := sch.Fields()
+	fields := sch.Fields() //获得当前表的所有表字段
 	for _, field := range fields {
 		s.Add(field, sch) //将sch中的每个字段都增加到当前的s中
 	}

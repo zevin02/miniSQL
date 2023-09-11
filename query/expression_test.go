@@ -36,4 +36,5 @@ func TestExpression(t *testing.T) {
 	assert.True(t, expressionFld.AppliesTo(sch))
 	assert.True(t, expressionConstant.AppliesTo(sch))
 
+	//todo Add test for evaluate
 }
