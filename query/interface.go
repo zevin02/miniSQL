@@ -19,7 +19,7 @@ import (
 
 */
 
-//Scan 读取某张表
+//Scan 只能读取某张表
 type Scan interface {
 	// select name ,age from student where age>20,把student这张表的每一条记录都提取出来，再把age>20的记录都取出来，再取出给定的字段
 	BeforeFirst() //把该对象重新指向起点

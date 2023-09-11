@@ -73,7 +73,7 @@ func (t *TableScan) Next() bool {
 	return true
 }
 
-//BeforeFirst 在第一次读取之前进行调用
+//BeforeFirst 在第一次读取之前进行调用，并且是会把slot位置设置为-1,搭配Next使用
 func (t *TableScan) BeforeFirst() {
 	t.Move2Block(0) //
 }
