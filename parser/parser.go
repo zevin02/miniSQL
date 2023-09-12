@@ -137,42 +137,42 @@ func (p *SQLParser) Predicate() *query.Predicate {
 }
 
 ////query->select selectlist from tablelist (where predicate)
-//func (p *SQLParser) Query() *QueryData {
-//	//读取当前的关键字
-//	tok, err := p.sqlLexer.Scan()
-//	if err != nil {
-//		return nil
-//	}
-//	if tok.Tag != lexer.SELECT {
-//		panic("token is not select")
-//	}
-//	//把字段筛选出来
-//	fields := p.SelectList()
-//	tok, err = p.sqlLexer.Scan()
-//	//读取到from关键字
-//	if err != nil {
-//		return nil
-//	}
-//	if tok.Tag != lexer.FROM {
-//		panic("token is not from")
-//	}
-//
-//	tables := p.TableList()
-//	//查看是否有WHERE关键字
-//	tok, err = p.sqlLexer.Scan()
-//	//读取到from关键字
-//	if err != nil {
-//		return nil
-//	}
-//	pred := query.NewPredicate()
-//	if tok.Tag == lexer.WHERE {
-//		pred = p.Predicate() //当前有where的关键词，就需要获得对应的predicate对象
-//	} else {
-//		p.sqlLexer.ReverseScan() //把当前读取到的关键字放回去
-//	}
-//	return newQueryData(fields, tables, pred)
-//
-//}
+func (p *SQLParser) Query() *QueryData {
+	//读取当前的关键字
+	tok, err := p.sqlLexer.Scan()
+	if err != nil {
+		return nil
+	}
+	if tok.Tag != lexer.SELECT {
+		panic("token is not select")
+	}
+	//把字段筛选出来
+	fields, err := p.SelectList()
+	tok, err = p.sqlLexer.Scan()
+	//读取到from关键字
+	if err != nil {
+		return nil
+	}
+	if tok.Tag != lexer.FROM {
+		panic("token is not from")
+	}
+
+	tables := p.TableList()
+	//查看是否有WHERE关键字
+	tok, err = p.sqlLexer.Scan()
+	//读取到from关键字
+	if err != nil && err != io.EOF {
+		return nil
+	}
+	pred := query.NewPredicate()
+	if tok.Tag == lexer.WHERE {
+		pred = p.Predicate() //当前有where的关键词，就需要获得对应的predicate对象
+	} else {
+		p.sqlLexer.ReverseScan() //把当前读取到的关键字放回去
+	}
+	return NewQueryData(fields, tables, pred)
+
+}
 
 //SelectList 把需要的字段筛选出来，递归的读取这个
 func (p *SQLParser) SelectList() ([]string, error) {

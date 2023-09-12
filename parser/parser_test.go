@@ -9,6 +9,7 @@ import (
 func TestParser(t *testing.T) {
 	sqlParser := NewSQLParser("age = 20")
 	term, err := sqlParser.Term() //开启解析过程
+	assert.NotNil(t, term)
 	assert.Nil(t, err)
 	sqlParser1 := NewSQLParser("age = 20 AND name =15 AND time = file")
 	pd := sqlParser1.Predicate()
@@ -23,5 +24,10 @@ func TestParser(t *testing.T) {
 	sqlParser3 := NewSQLParser("age,file,name from")
 	tl := sqlParser3.TableList()
 	assert.NotNil(t, tl)
-	fmt.Println(term)
+	sqlParser4 := NewSQLParser("SELECT AGE,NAME,DATE FROM T,B WHERE AGE = 1 AND TIME = \"AGE\" AND DATE =12")
+	qd := sqlParser4.Query()
+	fmt.Println(qd.ToString())
+	sqlParser5 := NewSQLParser("SELECT AGE,NAME,DATE FROM T,B")
+	qd1 := sqlParser5.Query()
+	fmt.Println(qd1.ToString())
 }
