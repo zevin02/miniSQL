@@ -1,8 +1,9 @@
 package lexer
 
-//对sql的关键字进行管理,如果解析的时候，遇到这些字符串的话，应该被当作关键字，而不是变量
+//Word 对sql的关键字进行管理,如果解析的时候，遇到这些字符串的话，应该被当作关键字，而不是变量字符串
+//比如 int abc=123,lexeme 就是“abc”，而tag就是ID,
 type Word struct {
-	lexeme string //关键字
+	lexeme string //用户定义的字符串
 	tag    *Token //当前关键字对应的token信息
 }
 
@@ -13,13 +14,14 @@ func NewWordToken(s string, tag Tag) *Word {
 	}
 }
 
-//ToString 返回当前的关键字字符串
+//ToString 返回当前的关键字字符串,对应的用户使用的字符串,变量就返回他对应的变量名，操作符，就返回他对应的操作符字符串
 func (w *Word) ToString() string {
 	return w.lexeme
 }
 
+//GetKeyWords 把所有能够形成字符串的关键字都抽取出来
 func GetKeyWords() []*Word {
-	//这些字符串都不会被解析成变量
+	//将这些变量设置成为关键字
 	key_words := []*Word{}
 	key_words = append(key_words, NewWordToken("||", OR))
 	key_words = append(key_words, NewWordToken("==", EQ))

@@ -2,22 +2,26 @@ package lexer
 
 type Tag uint32
 
+//123+456经过词法分析之后变成了NUM PLUS NUM,语法分析检验这个是否正确
+//123+“abc”，词法解析之后变成了NUM PLUS STRING,编译器就会输出错误
+
 //添加一些sql的关键字token最基础的sql的词
 const (
+	//这些都是一些关键字
 	AND Tag = iota + 256
 	OR
 	EQ
 	FALSE
 	TRUE
 	GE
-	ID
+	ID //identifier
 	LE
 	FLOAT
-	MINUS
-	PLUS
+	MINUS //-
+	PLUS  //+
 	NE
-	NUM
-	REAL
+	NUM           //对应数字
+	REAL          //对应浮点数：3.14这样的
 	LEFT_BRACE    // "{"
 	RIGHT_BRACE   // "}"
 	LEFT_BRACKET  //"("
@@ -50,15 +54,18 @@ const (
 	ON
 	COMMA
 	//SQL关键字定义结束
-	EOF
+	EOF //文件的结束
 
 	ERROR
 )
 
-var token_map = make(map[Tag]string)
+var token_map = make(map[Tag]string) //把这些标号，就可以转化成相应的字符串
 
+//词法解析，就是把字符串进行一个归类的过程
+//这样就可以把每个关键字对应到他们相应的字符串上面，把所有的字符串进行归类，每个类别都由一个标号来标识，
 func init() {
-	//初始化SQL关键字对应字符串
+	//init函数会自动执行，如果有多个init函数，编译器会决定怎么执行
+	//初始化SQL关键字对应字符串,将上面定义的值，和相应的字符串进行比对
 	token_map[AND] = "AND"
 	token_map[SELECT] = "SELECT"
 	token_map[FROM] = "FROM"
@@ -94,6 +101,7 @@ func init() {
 	token_map[OR] = "OR"
 	token_map[REAL] = "REAL"
 	token_map[TRUE] = "TRUE"
+	//操作符
 	token_map[AND_OPERATOR] = "&"
 	token_map[OR_OPERATOR] = "|"
 	token_map[ASSIGN_OPERATOR] = "="
@@ -109,10 +117,10 @@ func init() {
 
 }
 
-//Token 管理全局的一些token的使用
+//Token 管理全局的一些token的使用,标号和对应标号的字符串形式
 type Token struct {
 	tag    Tag
-	lexeme string //关键字
+	lexeme string //标号的字符串形式：LE ->"<"
 }
 
 func NewToken(tag Tag) *Token {
@@ -129,9 +137,9 @@ func NewTokenWithString(tag Tag, lexeme string) *Token {
 	}
 }
 
-//ToString 放回这个token对应的关键字
+//ToString 把这个标号对应的标号按照字符串的形式打印回去
 func (t *Token) ToString() string {
-	if t.lexeme == "" {
+	if t.lexeme == "" { //如果当前的lexeme没有使用，就直接调用token_map中的数据
 		return token_map[t.tag]
 	}
 	return t.lexeme
