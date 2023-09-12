@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"bufio"
+	"io"
 	"strconv"
 	"strings"
 	"unicode"
@@ -11,11 +12,11 @@ import (
 //将源代码的字符串读入，并把字符串规定到相应的分类中，让token来标志对应的字符串，我们需要一个字符一个字符的读取
 
 type Lexer struct {
-	lexeme string //保存用户此时输入的字符串
+	Lexeme string //保存用户此时输入的字符串
 	//用于存储已经识别的词法单元，在构建语法树的时候就能用上
-	lexemeStack []string //存储已识别出来的标记的文本内容
-	tokenStack  []*Token //已经识别出来标记的标记集合
-	readPointer int
+	LexemeStack []string          //存储已识别出来的标记的文本内容
+	tokenStack  []*Token          //已经识别出来标记的标记集合
+	readPointer int               //使用当前指针，可以访问指定的lexeme和对应的token
 	peek        byte              //读入的字符
 	line        int               //当前的字符串处在第几行
 	reader      *bufio.Reader     //提供了缓冲读取的功能，用来读取字节流
@@ -66,12 +67,21 @@ func (l *Lexer) ReadCharacter(c byte) (bool, error) {
 	return true, nil
 }
 
+//ReverseScan 将原本读取的指针往回退
+func (l *Lexer) ReverseScan() {
+	//将原本读取到的字符进行会退
+	if l.readPointer > 0 {
+		l.readPointer = l.readPointer - 1
+	}
+}
+
 //Scan 不断的扫描原sql代码，进行词法分析，分类，生成相对应的token
 func (l *Lexer) Scan() (*Token, error) {
-	if l.readPointer < len(l.lexemeStack) {
+	if l.readPointer < len(l.LexemeStack) {
 		//检查是否有保存的token没有被使用，将从已经保存的标记中获取一个标记并返回
 		//这个通常是实现预读的功能
-		l.lexeme = l.lexemeStack[l.readPointer]
+		//在调用scan之后又回退了，继续调用该函数，可以直接使用上次解析的结果
+		l.Lexeme = l.LexemeStack[l.readPointer]
 		token := l.tokenStack[l.readPointer]
 		l.readPointer += 1
 		return token, nil
@@ -82,6 +92,9 @@ func (l *Lexer) Scan() (*Token, error) {
 	for {
 		//扫描一行的代码
 		err := l.Readch()
+		if err == io.EOF {
+			return NewToken(EOF), err
+		}
 		if err != nil {
 			return NewToken(ERROR), err
 		}
@@ -95,58 +108,58 @@ func (l *Lexer) Scan() (*Token, error) {
 			break
 		}
 	}
-	l.lexeme = ""
+	l.Lexeme = ""
 	switch l.peek { //查看是否是特殊字符
 	case ',':
-		l.lexeme = ","
-		l.lexemeStack = append(l.lexemeStack, l.lexeme) //将当前的l.lexeme添加到stack中
+		l.Lexeme = ","
+		l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的l.Lexeme添加到stack中
 		token := NewToken(COMMA)
 		l.tokenStack = append(l.tokenStack, token)
 		return token, nil
 	case '{':
-		l.lexeme = "{"
-		l.lexemeStack = append(l.lexemeStack, l.lexeme) //将当前的l.lexeme添加到stack中
+		l.Lexeme = "{"
+		l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的l.Lexeme添加到stack中
 		token := NewToken(LEFT_BRACE)
 		l.tokenStack = append(l.tokenStack, token)
 		return token, nil
 	case '}':
-		l.lexeme = "}"
-		l.lexemeStack = append(l.lexemeStack, l.lexeme) //将当前的l.lexeme添加到stack中
+		l.Lexeme = "}"
+		l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的l.Lexeme添加到stack中
 		token := NewToken(RIGHT_BRACE)
 		l.tokenStack = append(l.tokenStack, token)
 		return token, nil
 
 	case '(':
-		l.lexeme = "("
-		l.lexemeStack = append(l.lexemeStack, l.lexeme) //将当前的l.lexeme添加到stack中
+		l.Lexeme = "("
+		l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的l.Lexeme添加到stack中
 		token := NewToken(LEFT_BRACKET)
 		l.tokenStack = append(l.tokenStack, token)
 		return token, nil
 	case ')':
-		l.lexeme = ")"
-		l.lexemeStack = append(l.lexemeStack, l.lexeme) //将当前的l.lexeme添加到stack中
+		l.Lexeme = ")"
+		l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的l.Lexeme添加到stack中
 		token := NewToken(RIGHT_BRACKET)
 		l.tokenStack = append(l.tokenStack, token)
 		return token, nil
 	case '+':
-		l.lexeme = "+"
-		l.lexemeStack = append(l.lexemeStack, l.lexeme) //将当前的l.lexeme添加到stack中
+		l.Lexeme = "+"
+		l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的l.Lexeme添加到stack中
 		token := NewToken(PLUS)
 		l.tokenStack = append(l.tokenStack, token)
 		return token, nil
 	case '-':
-		l.lexeme = "-"
-		l.lexemeStack = append(l.lexemeStack, l.lexeme) //将当前的l.lexeme添加到stack中
+		l.Lexeme = "-"
+		l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的l.Lexeme添加到stack中
 		token := NewToken(MINUS)
 		l.tokenStack = append(l.tokenStack, token)
 		return token, nil
 	case '&':
-		l.lexeme = "&"
+		l.Lexeme = "&"
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
 		if ok, err := l.ReadCharacter('&'); ok {
-			l.lexeme = "&&"
+			l.Lexeme = "&&"
 			word := NewWordToken("&&", AND)
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			l.tokenStack = append(l.tokenStack, word.tag)
 			if err != nil {
 				return NewToken(ERROR), err
@@ -155,7 +168,7 @@ func (l *Lexer) Scan() (*Token, error) {
 			return word.tag, nil
 		} else {
 			//否则就是一个与操作符
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			token := NewToken(AND_OPERATOR)
 			l.tokenStack = append(l.tokenStack, token)
 			return token, nil
@@ -163,12 +176,12 @@ func (l *Lexer) Scan() (*Token, error) {
 
 	case '|':
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
-		l.lexeme = "|"
+		l.Lexeme = "|"
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
 		if ok, err := l.ReadCharacter('|'); ok {
-			l.lexeme = "||"
+			l.Lexeme = "||"
 			word := NewWordToken("||", OR)
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			l.tokenStack = append(l.tokenStack, word.tag)
 			if err != nil {
 				return NewToken(ERROR), err
@@ -177,19 +190,19 @@ func (l *Lexer) Scan() (*Token, error) {
 			return word.tag, nil
 		} else {
 			//否则就是一个与操作符
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			token := NewToken(OR_OPERATOR)
 			l.tokenStack = append(l.tokenStack, token)
 			return token, nil
 		}
 	case '=':
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
-		l.lexeme = "="
+		l.Lexeme = "="
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
 		if ok, err := l.ReadCharacter('='); ok {
-			l.lexeme = "=="
+			l.Lexeme = "=="
 			word := NewWordToken("==", EQ)
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			l.tokenStack = append(l.tokenStack, word.tag)
 			if err != nil {
 				return NewToken(ERROR), err
@@ -198,19 +211,19 @@ func (l *Lexer) Scan() (*Token, error) {
 			return word.tag, nil
 		} else {
 			//否则就是一个与操作符
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			token := NewToken(ASSIGN_OPERATOR)
 			l.tokenStack = append(l.tokenStack, token)
 			return token, nil
 		}
 	case '!':
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
-		l.lexeme = "!"
+		l.Lexeme = "!"
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
 		if ok, err := l.ReadCharacter('='); ok {
-			l.lexeme = "!="
+			l.Lexeme = "!="
 			word := NewWordToken("!=", NE)
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			l.tokenStack = append(l.tokenStack, word.tag)
 			if err != nil {
 				return NewToken(ERROR), err
@@ -219,19 +232,19 @@ func (l *Lexer) Scan() (*Token, error) {
 			return word.tag, nil
 		} else {
 			//否则就是一个与操作符
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			token := NewToken(NEGATE_OPERATOR)
 			l.tokenStack = append(l.tokenStack, token)
 			return token, nil
 		}
 	case '<':
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
-		l.lexeme = "<"
+		l.Lexeme = "<"
 		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
 		if ok, err := l.ReadCharacter('='); ok {
-			l.lexeme = "<="
+			l.Lexeme = "<="
 			word := NewWordToken("<=", LE)
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			l.tokenStack = append(l.tokenStack, word.tag)
 			if err != nil {
 				return NewToken(ERROR), err
@@ -240,20 +253,18 @@ func (l *Lexer) Scan() (*Token, error) {
 			return word.tag, nil
 		} else {
 			//否则就是一个与操作符
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			token := NewToken(LESS_OPERATOR)
 			l.tokenStack = append(l.tokenStack, token)
 			return token, nil
 		}
 
 	case '>':
-		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
-		l.lexeme = ">"
-		//如果当前是&,需要检查当前是否是&&,所以需要往后面多读取一位
+		l.Lexeme = ">"
 		if ok, err := l.ReadCharacter('='); ok {
-			l.lexeme = ">="
+			l.Lexeme = ">="
 			word := NewWordToken(">=", GE)
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			l.tokenStack = append(l.tokenStack, word.tag)
 			if err != nil {
 				return NewToken(ERROR), err
@@ -262,7 +273,7 @@ func (l *Lexer) Scan() (*Token, error) {
 			return word.tag, nil
 		} else {
 			//否则就是一个与操作符
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			token := NewToken(GREATER_OPERATOR)
 			l.tokenStack = append(l.tokenStack, token)
 			return token, nil
@@ -272,7 +283,7 @@ func (l *Lexer) Scan() (*Token, error) {
 		for {
 			err := l.Readch()
 			if l.peek == '"' {
-				l.lexemeStack = append(l.lexemeStack, l.lexeme)
+				l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 				token := NewToken(STRING)
 				l.tokenStack = append(l.tokenStack, token)
 				return token, nil
@@ -281,7 +292,7 @@ func (l *Lexer) Scan() (*Token, error) {
 			if err != nil {
 				panic("string no end with quota")
 			}
-			l.lexeme += string(l.peek) //将读取到的字符串拼接起来
+			l.Lexeme += string(l.peek) //将读取到的字符串拼接起来
 		}
 	}
 	//上面的情况都不是
@@ -301,18 +312,18 @@ func (l *Lexer) Scan() (*Token, error) {
 				break
 			}
 			v = v*10 + num
-			l.lexeme += string(l.peek)
+			l.Lexeme += string(l.peek)
 			l.Readch() //读取下一个字符
 		}
 		if l.peek != '.' {
 			//如果当前不是‘.'说明当前数字读取完了，当前数字不是小数，而是一个整数，就把当前整数返回
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			token := NewToken(NUM)
-			token.lexeme = l.lexeme
+			token.lexeme = l.Lexeme
 			l.tokenStack = append(l.tokenStack, token)
 			return token, err
 		}
-		l.lexeme += string(l.peek)
+		l.Lexeme += string(l.peek)
 		l.Readch()
 		//这个就说明他是一个小数
 		x := float64(v) //把当前放到x
@@ -330,11 +341,11 @@ func (l *Lexer) Scan() (*Token, error) {
 			//把小数点后面的字符进行转换
 			x = x + float64(num)/d
 			d = d * 10 //进制每次都要增加
-			l.lexeme += string(l.peek)
+			l.Lexeme += string(l.peek)
 		}
-		l.lexemeStack = append(l.lexemeStack, l.lexeme)
+		l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 		token := NewToken(REAL)
-		token.lexeme = l.lexeme
+		token.lexeme = l.Lexeme
 		l.tokenStack = append(l.tokenStack, token)
 		return token, nil
 		//当前是一个小数，就返回REAL类型的token
@@ -344,11 +355,11 @@ func (l *Lexer) Scan() (*Token, error) {
 		var buffer []byte //把字符放到缓冲区中
 		for {
 			buffer = append(buffer, l.peek)
-			l.lexeme += string(l.peek)
+			l.Lexeme += string(l.peek)
 			//继续往后读取一个字符
 			l.Readch()
 			if !unicode.IsLetter(rune(l.peek)) {
-				//当前已经不是字符了，说明字符串已经读取完成了
+				//当前已经不是字符了，说明字符串已经读取完成了，并且把读取到字符放回去
 				if l.peek != 0 {
 					l.UnRead()
 				}
@@ -358,14 +369,14 @@ func (l *Lexer) Scan() (*Token, error) {
 		s := string(buffer)
 		token, ok := l.keyWords[s] //检查一下单前的字符串是不是一个关键字,如果是的话
 		if ok {
-			l.lexemeStack = append(l.lexemeStack, l.lexeme) //将当前的字符串保存起来
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的字符串保存起来
 			l.tokenStack = append(l.tokenStack, token)      //将当前的字符串的token保存起来
 			//当前是一个关键字,直接返回这个关键字对应的token即可
 			return token, nil
 		} else {
-			l.lexemeStack = append(l.lexemeStack, l.lexeme)
+			l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 			token = NewToken(ID)
-			token.lexeme = l.lexeme
+			token.lexeme = l.Lexeme
 			l.tokenStack = append(l.tokenStack, token)
 			return token, nil
 		}
@@ -376,5 +387,5 @@ func (l *Lexer) Scan() (*Token, error) {
 }
 
 func (l *Lexer) UnRead() error {
-	return l.reader.UnreadByte()
+	return l.reader.UnreadByte() //把读取到的字符放回
 }

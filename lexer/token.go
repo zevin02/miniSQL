@@ -119,28 +119,28 @@ func init() {
 
 //Token 管理全局的一些token的使用,标号和对应标号的字符串形式
 type Token struct {
-	tag    Tag
+	Tag    Tag
 	lexeme string //标号的字符串形式：LE ->"<"
 }
 
 func NewToken(tag Tag) *Token {
 	return &Token{
 		lexeme: "",
-		tag:    tag,
+		Tag:    tag,
 	}
 }
 
 func NewTokenWithString(tag Tag, lexeme string) *Token {
 	return &Token{
 		lexeme: lexeme,
-		tag:    tag,
+		Tag:    tag,
 	}
 }
 
 //ToString 把这个标号对应的标号按照字符串的形式打印回去
 func (t *Token) ToString() string {
 	if t.lexeme == "" { //如果当前的lexeme没有使用，就直接调用token_map中的数据
-		return token_map[t.tag]
+		return token_map[t.Tag]
 	}
 	return t.lexeme
 }
