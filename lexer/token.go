@@ -33,7 +33,7 @@ const (
 	LESS_OPERATOR
 	GREATER_OPERATOR
 	BASIC //对应int , float, bool, char 等类型定义
-
+	STRING
 	//新增SQL对应关键字
 	SELECT
 	FROM

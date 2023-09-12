@@ -32,6 +32,7 @@ func GetKeyWords() []*Word {
 	key_words = append(key_words, NewWordToken("AND", AND))
 	key_words = append(key_words, NewWordToken("SELECT", SELECT))
 	key_words = append(key_words, NewWordToken("FROM", FROM))
+	key_words = append(key_words, NewWordToken("WHERE", WHERE))
 	key_words = append(key_words, NewWordToken("INSERT", INSERT))
 	key_words = append(key_words, NewWordToken("INTO", INTO))
 	key_words = append(key_words, NewWordToken("VALUES", VALUES))
