@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"io"
 	"miniSQL/comm"
 	"miniSQL/lexer"
 	"miniSQL/query"
@@ -172,3 +173,46 @@ func (p *SQLParser) Predicate() *query.Predicate {
 //	return newQueryData(fields, tables, pred)
 //
 //}
+
+//SelectList 把需要的字段筛选出来，递归的读取这个
+func (p *SQLParser) SelectList() ([]string, error) {
+	//select_list对应select关键字后面的列名称
+	l := make([]string, 0)
+	_, field, _ := p.Field() //获得一个ID
+	l = append(l, field)     //把当前的字段添加到字段列表中
+
+	tok, err := p.sqlLexer.Scan() //往后面读取
+	if err != nil {
+		panic(err)
+	}
+	//判断时不是逗号，如果是的话，说明后面还有字段，还需要继续调用
+	if tok.Tag == lexer.COMMA {
+		selectList, _ := p.SelectList()
+		l = append(l, selectList...)
+	} else {
+		p.sqlLexer.ReverseScan() //把读取到的字符回退，保证下次能够读取到
+	}
+
+	return l, nil
+}
+
+func (p *SQLParser) TableList() []string {
+	l := make([]string, 0)
+	_, field, _ := p.Field() //获得一个ID
+	l = append(l, field)     //把当前的字段添加到字段列表中
+	//如果为空的话，也可以返回了
+	tok, err := p.sqlLexer.Scan() //往后面读取
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+	if tok.Tag == lexer.EOF {
+		return l
+	}
+	if tok.Tag == lexer.COMMA {
+		tableList := p.TableList()
+		l = append(l, tableList...)
+	} else {
+		p.sqlLexer.ReverseScan() //把读取到的字符回退，保证下次能够读取到
+	}
+	return l
+}
