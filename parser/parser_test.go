@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestParser(t *testing.T) {
+func TestSelect(t *testing.T) {
 	sqlParser := NewSQLParser("age = 20")
 	term, err := sqlParser.Term() //开启解析过程
 	assert.NotNil(t, term)
@@ -30,4 +30,16 @@ func TestParser(t *testing.T) {
 	sqlParser5 := NewSQLParser("SELECT AGE,NAME,DATE FROM T,B")
 	qd1 := sqlParser5.Query()
 	fmt.Println(qd1.ToString())
+}
+
+func TestCreate(t *testing.T) {
+	sql := "CREATE TABLE PERSRON (PERSONID INT, LASTNAME VARCHAR(255),FIRSTNAME VARCHAR(255),ADDRESS INT)"
+	parser := NewSQLParser(sql)
+	tbdt := parser.UpdateCmd()
+	i := tbdt.(*TableData) //将该接口类型进行类型转化
+	assert.NotNil(t, i)
+	assert.Equal(t, "PERSRON", i.tableName)
+	fields := i.schema.Fields()
+	expectfield := []string{"PERSONID", "LASTNAME", "FIRSTNAME", "ADDRESS"}
+	assert.Equal(t, expectfield, fields)
 }

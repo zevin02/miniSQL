@@ -2,6 +2,7 @@ package parser
 
 import "miniSQL/query"
 
+//QueryData 保存select解析出来的结果
 type QueryData struct {
 	fields []string
 	tables []string
@@ -28,7 +29,7 @@ func (q *QueryData) Pred() *query.Predicate {
 	return q.pred
 }
 
-//将这个SQL语句转化成字符串的形式
+//ToString 将这个SQL语句转化成字符串的形式
 func (q *QueryData) ToString() string {
 	result := "SELECT "
 	fieldNum := len(q.fields)
@@ -39,8 +40,6 @@ func (q *QueryData) ToString() string {
 			result += ", "
 		}
 	}
-
-	// 去掉最后一个逗号
 	result = result[:len(result)-1]
 	result += " FROM "
 	tableNum := len(q.tables)
@@ -50,13 +49,10 @@ func (q *QueryData) ToString() string {
 			result += ", "
 		}
 	}
-	// 去掉最后一个逗号
-
 	//result = result[:len(result)-1]
 	predStr := q.pred.ToString()
 	if predStr != "" {
 		result += " WHERE " + predStr
 	}
-
 	return result
 }

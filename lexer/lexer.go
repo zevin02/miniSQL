@@ -8,9 +8,8 @@ import (
 	"unicode"
 )
 
-//词法解析器
+//Lexer 词法解析器
 //将源代码的字符串读入，并把字符串规定到相应的分类中，让token来标志对应的字符串，我们需要一个字符一个字符的读取
-
 type Lexer struct {
 	Lexeme string //保存用户此时输入的字符串
 	//用于存储已经识别的词法单元，在构建语法树的时候就能用上
@@ -36,7 +35,7 @@ func NewLexer(source string) *Lexer {
 	return lexer
 }
 
-//reserve 先保留所有的已经设定好了的关键字，方便之后在词法分析中快速的识别他们
+//reserve 先保留所有的已经设定好了的关键字，方便之后在词法分析中快速识别他们
 func (l *Lexer) reserve() {
 	keyWords := GetKeyWords() //先获得所有的关键字
 	for _, keyWord := range keyWords {
@@ -44,8 +43,8 @@ func (l *Lexer) reserve() {
 	}
 }
 
-//Readch 从代码中读取一个一个的字符
-func (l *Lexer) Readch() error {
+//ReadCh 从代码中读取一个一个的字符
+func (l *Lexer) ReadCh() error {
 	char, err := l.reader.ReadByte() //读取一个字符
 	l.peek = char                    //把读取的字符进行暂存
 	return err
@@ -63,7 +62,7 @@ func (l *Lexer) ReadCharacter(c byte) (bool, error) {
 		return false, nil
 	}
 	//如果当前读入的字符和指定的字符一样，就设置成‘ ’
-	l.Readch() //越过当前peek字符
+	l.ReadCh() //越过当前peek字符
 	return true, nil
 }
 
@@ -91,7 +90,7 @@ func (l *Lexer) Scan() (*Token, error) {
 
 	for {
 		//扫描一行的代码
-		err := l.Readch()
+		err := l.ReadCh()
 		if err == io.EOF {
 			return NewToken(EOF), err
 		}
@@ -281,7 +280,7 @@ func (l *Lexer) Scan() (*Token, error) {
 	case '"':
 		//对于这个开头的，会循环读取字符，直到读取到下一个“为止
 		for {
-			err := l.Readch()
+			err := l.ReadCh()
 			if l.peek == '"' {
 				l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 				token := NewToken(STRING)
@@ -313,7 +312,7 @@ func (l *Lexer) Scan() (*Token, error) {
 			}
 			v = v*10 + num
 			l.Lexeme += string(l.peek)
-			l.Readch() //读取下一个字符
+			l.ReadCh() //读取下一个字符
 		}
 		if l.peek != '.' {
 			//如果当前不是‘.'说明当前数字读取完了，当前数字不是小数，而是一个整数，就把当前整数返回
@@ -324,13 +323,13 @@ func (l *Lexer) Scan() (*Token, error) {
 			return token, err
 		}
 		l.Lexeme += string(l.peek)
-		l.Readch()
+		l.ReadCh()
 		//这个就说明他是一个小数
 		x := float64(v) //把当前放到x
 		d := float64(10)
 		for {
 			//继续往后读取数据
-			l.Readch()
+			l.ReadCh()
 			num, err := strconv.Atoi(string(l.peek))
 			if err != nil {
 				if l.peek != 0 {
@@ -357,7 +356,7 @@ func (l *Lexer) Scan() (*Token, error) {
 			buffer = append(buffer, l.peek)
 			l.Lexeme += string(l.peek)
 			//继续往后读取一个字符
-			l.Readch()
+			l.ReadCh()
 			if !unicode.IsLetter(rune(l.peek)) {
 				//当前已经不是字符了，说明字符串已经读取完成了，并且把读取到字符放回去
 				if l.peek != 0 {

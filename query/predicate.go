@@ -130,7 +130,7 @@ func (p *Predicate) ToString() string {
 			result += t.ToString()
 		} else {
 			//todo 使用相应的逻辑表达式来进行处理
-			result += " and " + t.ToString()
+			result += " AND " + t.ToString()
 		}
 	}
 	return result

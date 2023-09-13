@@ -6,6 +6,7 @@ import (
 	"miniSQL/comm"
 	"miniSQL/lexer"
 	"miniSQL/query"
+	rm "miniSQL/record_manager"
 	"strconv"
 	"strings"
 )
@@ -22,6 +23,7 @@ func NewSQLParser(s string) *SQLParser {
 }
 
 /*
+	bfd范式
 	FIELD -> ID
 	CONSTANT -> STRING | NUM
 	EXPRESSION -> FIELD | CONSTANT
@@ -39,7 +41,6 @@ func (p *SQLParser) Field() (*lexer.Token, string, error) {
 	if token.Tag != lexer.ID {
 		return nil, "", errors.New("tag of field is not ID")
 	}
-
 	return token, p.sqlLexer.Lexeme, nil
 }
 
@@ -68,7 +69,7 @@ func (p *SQLParser) Constant() (*comm.Constant, error) {
 	panic("token is not string ")
 }
 
-//Expression EXPRESSION -> FIELD | CONSTANT,digui de diaoyong
+//Expression EXPRESSION -> FIELD | CONSTANT
 func (p *SQLParser) Expression() (*query.Expression, error) {
 	tok, err := p.sqlLexer.Scan()
 	if err != nil {
@@ -92,7 +93,7 @@ func (p *SQLParser) Expression() (*query.Expression, error) {
 	}
 }
 
-//TERM -> EXPRESSION EQ EXPRESSION
+//TERM  -> EXPRESSION EQ EXPRESSION
 
 func (p *SQLParser) Term() (*query.Term, error) {
 	//进行完左边的解析之后
@@ -116,7 +117,8 @@ func (p *SQLParser) Term() (*query.Term, error) {
 }
 
 //predicate->term (and predicate),条件里面包含条件,递归的调用这个函数
-//Predicate构造一个条件出来
+
+//Predicate 构造一个条件出来
 func (p *SQLParser) Predicate() *query.Predicate {
 	term, err := p.Term()
 	if err != nil {
@@ -136,7 +138,7 @@ func (p *SQLParser) Predicate() *query.Predicate {
 	return pred
 }
 
-////query->select selectlist from tablelist (where predicate)
+//Query ->select selectlist from tablelist (where predicate)解析出sql语句的各个信息
 func (p *SQLParser) Query() *QueryData {
 	//读取当前的关键字
 	tok, err := p.sqlLexer.Scan()
@@ -174,7 +176,7 @@ func (p *SQLParser) Query() *QueryData {
 
 }
 
-//SelectList 把需要的字段筛选出来，递归的读取这个
+//SelectList 将select需要的字段筛选出来，递归的读取这个
 func (p *SQLParser) SelectList() ([]string, error) {
 	//select_list对应select关键字后面的列名称
 	l := make([]string, 0)
@@ -196,6 +198,7 @@ func (p *SQLParser) SelectList() ([]string, error) {
 	return l, nil
 }
 
+//TableList 将Select中需要查询的表给筛选出来
 func (p *SQLParser) TableList() []string {
 	l := make([]string, 0)
 	_, field, _ := p.Field() //获得一个ID
@@ -215,4 +218,160 @@ func (p *SQLParser) TableList() []string {
 		p.sqlLexer.ReverseScan() //把读取到的字符回退，保证下次能够读取到
 	}
 	return l
+}
+
+//UpdateCmd 对于表的修改的语句主要有:INSERT | DELETE | MODIFY | CREATE
+func (p *SQLParser) UpdateCmd() interface{} {
+	tok, err := p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	if tok.Tag == lexer.INSERT {
+		return nil
+	} else if tok.Tag == lexer.DELETE {
+		return nil
+	} else if tok.Tag == lexer.UPDATE {
+		return nil
+	} else if tok.Tag == lexer.CREATE {
+		//当前是create,进入到create的分支中
+		p.sqlLexer.ReverseScan()
+		return p.Create()
+	}
+	return nil
+}
+
+func (p *SQLParser) Create() interface{} {
+	//继续读取，判断开头是否是CREATE语句
+	tok, err := p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	if tok.Tag != lexer.CREATE {
+		//第一个token一定要以create开头，否则就是一个语法错误
+		panic("should be create")
+	}
+	tok, err = p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	//查看是create table，view,还是index
+	if tok.Tag == lexer.TABLE {
+		return p.CreateTable()
+	} else if tok.Tag == lexer.VIEW {
+		return nil
+		//return p.CreateView()
+	} else if tok.Tag == lexer.INDEX {
+		//return p.CreateIndex()
+		return nil
+	}
+	return nil
+}
+
+//CreateTable create table tblname (f1 int, f2 varchar(255))
+//
+func (p *SQLParser) CreateTable() interface{} {
+	//table后面跟着的一定是一个表的名字，表的ID
+	tok, err := p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	//table后面一定要跟着一个表名,数字是不能作为一个表名
+	if tok.Tag != lexer.ID {
+		//第一个token一定要以create开头，否则就是一个语法错误
+		panic("should be id")
+	}
+	tblName := p.sqlLexer.Lexeme //获得当前的表名
+	//继续往后扫描，得到的一定需要是左括号，左括号后面跟着的就是类型的定义
+	tok, err = p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	if tok.Tag != lexer.LEFT_BRACKET {
+		panic("miss left bracket")
+	}
+	//左括号后面跟着的就是类型的定义
+	sch := p.FieldDefs() //读取当前表的结构
+	//表结构读取完之后，跟着的就是一个右括号，表示类型定义结束
+	tok, err = p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	if tok.Tag != lexer.RIGHT_BRACKET {
+		panic("miss right bracket")
+	}
+	//存储当前的表名和表结构
+	return NewCreateTableData(tblName, sch)
+}
+
+//FieldDefs 读取sql语句获得表的schema结构，递归的调用该函数进行读取
+func (p *SQLParser) FieldDefs() *rm.Schema {
+	schema := p.FieldDef()        //读取一个schema对象
+	tok, err := p.sqlLexer.Scan() //读取下一个词
+	if err != nil {
+		panic(err)
+	}
+	//如果有逗号，说明后面还有定义，集聚需要继续递归的去调用这个函数
+	if tok.Tag == lexer.COMMA {
+		schema2 := p.FieldDefs()
+		schema.AddAll(schema2)
+	} else {
+		//如果当前读取到的不是逗号，就把读到的数据放回去
+		p.sqlLexer.ReverseScan()
+	}
+	return schema
+}
+
+//FieldDef 读取当前表的字段名字和类型
+func (p *SQLParser) FieldDef() *rm.Schema {
+	_, fldName, err := p.Field() //读取字段名字
+	if err != nil {
+		return nil
+	}
+
+	return p.fieldType(fldName)
+}
+
+//fieldType 读取表的类型
+func (p *SQLParser) fieldType(fieldName string) *rm.Schema {
+	schema := rm.NewSchema()
+	tok, err := p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	//字段目前只支持两种类型
+	if tok.Tag == lexer.INT {
+		schema.AddIntField(fieldName)
+	} else if tok.Tag == lexer.VARCHAR {
+		//如果是varchar的话，后面还有括号varchar(255)
+		tok, err = p.sqlLexer.Scan()
+		if err != nil {
+			panic(err)
+		}
+		if tok.Tag != lexer.LEFT_BRACKET {
+			panic("should be left bracket")
+		}
+		//继续往后面读，读取的必须是数字
+		tok, err = p.sqlLexer.Scan()
+		if err != nil {
+			panic(err)
+		}
+		if tok.Tag != lexer.NUM {
+			panic("should be NUM")
+		}
+		num := p.sqlLexer.Lexeme
+		fldLen, err := strconv.Atoi(num)
+		if err != nil {
+			panic(err)
+		}
+		schema.AddStringField(fieldName, fldLen)
+		//再检查后面是否有）结尾
+		tok, err = p.sqlLexer.Scan()
+		if err != nil {
+			panic(err)
+		}
+		if tok.Tag != lexer.RIGHT_BRACKET {
+			panic("should be right bracket")
+		}
+	}
+	return schema
 }
