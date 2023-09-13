@@ -16,13 +16,13 @@ func TestSelect(t *testing.T) {
 	assert.NotNil(t, pd)
 	sqlParser2 := NewSQLParser("age,file,name from")
 	fieldList := []string{"age", "file", "name"}
-	sl, err := sqlParser2.SelectList()
+	sl := sqlParser2.IDList()
 	assert.Equal(t, fieldList, sl)
 	assert.NotNil(t, sl)
 	assert.Nil(t, err)
 	assert.NotNil(t, sqlParser2)
 	sqlParser3 := NewSQLParser("age,file,name from")
-	tl := sqlParser3.TableList()
+	tl := sqlParser3.IDList()
 	assert.NotNil(t, tl)
 	sqlParser4 := NewSQLParser("SELECT AGE,NAME,DATE FROM T,B WHERE AGE = 1 AND TIME = \"AGE\" AND DATE =12")
 	qd := sqlParser4.Query()
@@ -42,4 +42,23 @@ func TestCreate(t *testing.T) {
 	fields := i.schema.Fields()
 	expectfield := []string{"PERSONID", "LASTNAME", "FIRSTNAME", "ADDRESS"}
 	assert.Equal(t, expectfield, fields)
+}
+
+func TestInsert(t *testing.T) {
+	//sql := "INSERT INTO PERSON (NAME,ID) VALUES (1,\"20\")"
+	sql := "INSERT INTO Customers (CustomerName, ContactName, Address, City, PostalCode, Country) " +
+		"VALUES (\"Cardinal\", \"Tom B. Erichsen\", \"Skagen 21\", \"Stavanger\", 4006, \"Norway\")"
+	parser := NewSQLParser(sql)
+	it := parser.UpdateCmd()
+	it = it.(*InsertData)
+
+}
+
+func TestView(t *testing.T) {
+	//TODO 解析字符串的时候，需要把字符串中间的下划线包括进去
+	sql := "CREATE VIEW employeeview AS SELECT employeeid, firstname, lastname, salary FROM employees WHERE salary > 50000"
+	parser := NewSQLParser(sql)
+	it := parser.UpdateCmd()
+	it = it.(*ViewData)
+
 }

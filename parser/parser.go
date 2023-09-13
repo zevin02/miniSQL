@@ -149,7 +149,7 @@ func (p *SQLParser) Query() *QueryData {
 		panic("token is not select")
 	}
 	//把字段筛选出来
-	fields, err := p.SelectList()
+	fields := p.IDList()
 	tok, err = p.sqlLexer.Scan()
 	//读取到from关键字
 	if err != nil {
@@ -159,7 +159,7 @@ func (p *SQLParser) Query() *QueryData {
 		panic("token is not from")
 	}
 
-	tables := p.TableList()
+	tables := p.IDList()
 	//查看是否有WHERE关键字
 	tok, err = p.sqlLexer.Scan()
 	//读取到from关键字
@@ -176,30 +176,8 @@ func (p *SQLParser) Query() *QueryData {
 
 }
 
-//SelectList 将select需要的字段筛选出来，递归的读取这个
-func (p *SQLParser) SelectList() ([]string, error) {
-	//select_list对应select关键字后面的列名称
-	l := make([]string, 0)
-	_, field, _ := p.Field() //获得一个ID
-	l = append(l, field)     //把当前的字段添加到字段列表中
-
-	tok, err := p.sqlLexer.Scan() //往后面读取
-	if err != nil {
-		panic(err)
-	}
-	//判断时不是逗号，如果是的话，说明后面还有字段，还需要继续调用
-	if tok.Tag == lexer.COMMA {
-		selectList, _ := p.SelectList()
-		l = append(l, selectList...)
-	} else {
-		p.sqlLexer.ReverseScan() //把读取到的字符回退，保证下次能够读取到
-	}
-
-	return l, nil
-}
-
-//TableList 将Select中需要查询的表给筛选出来
-func (p *SQLParser) TableList() []string {
+//IDList 将ID全筛选出来
+func (p *SQLParser) IDList() []string {
 	l := make([]string, 0)
 	_, field, _ := p.Field() //获得一个ID
 	l = append(l, field)     //把当前的字段添加到字段列表中
@@ -212,8 +190,29 @@ func (p *SQLParser) TableList() []string {
 		return l
 	}
 	if tok.Tag == lexer.COMMA {
-		tableList := p.TableList()
+		tableList := p.IDList()
 		l = append(l, tableList...)
+	} else {
+		p.sqlLexer.ReverseScan() //把读取到的字符回退，保证下次能够读取到
+	}
+	return l
+}
+
+func (p *SQLParser) CostantList() []*comm.Constant {
+	l := make([]*comm.Constant, 0)
+	constant, _ := p.Constant() //获得一个ID
+	l = append(l, constant)     //把当前的字段添加到字段列表中
+	//如果为空的话，也可以返回了
+	tok, err := p.sqlLexer.Scan() //往后面读取
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+	if tok.Tag == lexer.EOF {
+		return l
+	}
+	if tok.Tag == lexer.COMMA {
+		constList := p.CostantList()
+		l = append(l, constList...)
 	} else {
 		p.sqlLexer.ReverseScan() //把读取到的字符回退，保证下次能够读取到
 	}
@@ -226,15 +225,17 @@ func (p *SQLParser) UpdateCmd() interface{} {
 	if err != nil {
 		panic(err)
 	}
+	p.sqlLexer.ReverseScan() //读取完了之后，先退回去，让该token能够继续被读取
+
 	if tok.Tag == lexer.INSERT {
-		return nil
+		return p.Insert()
 	} else if tok.Tag == lexer.DELETE {
 		return nil
 	} else if tok.Tag == lexer.UPDATE {
 		return nil
 	} else if tok.Tag == lexer.CREATE {
 		//当前是create,进入到create的分支中
-		p.sqlLexer.ReverseScan()
+		//p.sqlLexer.ReverseScan()
 		return p.Create()
 	}
 	return nil
@@ -258,13 +259,58 @@ func (p *SQLParser) Create() interface{} {
 	if tok.Tag == lexer.TABLE {
 		return p.CreateTable()
 	} else if tok.Tag == lexer.VIEW {
-		return nil
+		return p.CreateView()
 		//return p.CreateView()
 	} else if tok.Tag == lexer.INDEX {
 		//return p.CreateIndex()
 		return nil
 	}
 	return nil
+}
+
+//Insert insert into ID (name,age) values (10,"str"),(20,“name”)
+//insert into ID left_bracket fieldlist right_bracket values left_bracket valuelist right_bracket
+func (p *SQLParser) Insert() interface{} {
+	p.checkWordTag(lexer.INSERT)
+	p.checkWordTag(lexer.INTO)
+	p.checkWordTag(lexer.ID)
+	tblName := p.sqlLexer.Lexeme //得到这张表的表名
+	p.checkWordTag(lexer.LEFT_BRACKET)
+	//得到他的field集合
+	fields := p.IDList()
+	p.checkWordTag(lexer.RIGHT_BRACKET)
+	p.checkWordTag(lexer.VALUES)
+	p.checkWordTag(lexer.LEFT_BRACKET)
+	values := p.CostantList()
+
+	p.checkWordTag(lexer.RIGHT_BRACKET)
+	return NewInsertData(tblName, fields, values)
+}
+
+//checkWordTag 检查tag是否是我们需要的tag,如果不是就panic
+func (p *SQLParser) checkWordTag(wordTag lexer.Tag) {
+	tok, err := p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	//table后面一定要跟着一个表名,数字是不能作为一个表名
+	if tok.Tag != wordTag {
+		//第一个token一定要以create开头，否则就是一个语法错误
+		panic("should be ")
+	}
+}
+
+func (p *SQLParser) isMatchTag(wordTag lexer.Tag) bool {
+	tok, err := p.sqlLexer.Scan()
+	if err != nil {
+		panic(err)
+	}
+	//table后面一定要跟着一个表名,数字是不能作为一个表名
+	if tok.Tag != wordTag {
+		//第一个token一定要以create开头，否则就是一个语法错误
+		return false
+	}
+	return true
 }
 
 //CreateTable create table tblname (f1 int, f2 varchar(255))
@@ -374,4 +420,13 @@ func (p *SQLParser) fieldType(fieldName string) *rm.Schema {
 		}
 	}
 	return schema
+}
+
+//CreateView 创建一个视图,CREATE VIEW VIEW_NAME AS QUERY
+func (p *SQLParser) CreateView() interface{} {
+	p.checkWordTag(lexer.ID)
+	viewName := p.sqlLexer.Lexeme
+	p.checkWordTag(lexer.AS)
+	qd := p.Query() //获得query的对象
+	return NewViewData(viewName, qd)
 }
