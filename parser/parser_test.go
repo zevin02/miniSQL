@@ -56,9 +56,24 @@ func TestInsert(t *testing.T) {
 
 func TestView(t *testing.T) {
 	//TODO 解析字符串的时候，需要把字符串中间的下划线包括进去
-	sql := "CREATE VIEW employeeview AS SELECT employeeid, firstname, lastname, salary FROM employees WHERE salary > 50000"
+	sql := "CREATE VIEW employeeview AS SELECT employeeid, firstname, lastname, salary FROM employees WHERE salary = 50000"
 	parser := NewSQLParser(sql)
 	it := parser.UpdateCmd()
-	it = it.(*ViewData)
+	dd := it.(*ViewData)
+	assert.NotNil(t, dd)
+	fmt.Println(dd.ToString())
+	sql2 := "CREATE VIEW Customer AS SELECT CustomerName, ContactName FROM customers WHERE country=\"China\""
+	sqlParser := NewSQLParser(sql2)
+	dit := sqlParser.UpdateCmd()
+	dd2 := dit.(*ViewData)
+	assert.NotNil(t, dd2)
+	fmt.Println(dd2.ToString())
+}
 
+func TestIndex(t *testing.T) {
+	sql := "CREATE INDEX indexName ON PERSON (LASTNAME,FIRST)"
+	parser := NewSQLParser(sql)
+	it := parser.UpdateCmd()
+	dd := it.(*IndexData)
+	fmt.Println(dd.ToString())
 }

@@ -260,10 +260,9 @@ func (p *SQLParser) Create() interface{} {
 		return p.CreateTable()
 	} else if tok.Tag == lexer.VIEW {
 		return p.CreateView()
-		//return p.CreateView()
 	} else if tok.Tag == lexer.INDEX {
-		//return p.CreateIndex()
-		return nil
+		return p.CreateIndex()
+		//return nil
 	}
 	return nil
 }
@@ -314,7 +313,6 @@ func (p *SQLParser) isMatchTag(wordTag lexer.Tag) bool {
 }
 
 //CreateTable create table tblname (f1 int, f2 varchar(255))
-//
 func (p *SQLParser) CreateTable() interface{} {
 	//table后面跟着的一定是一个表的名字，表的ID
 	tok, err := p.sqlLexer.Scan()
@@ -429,4 +427,22 @@ func (p *SQLParser) CreateView() interface{} {
 	p.checkWordTag(lexer.AS)
 	qd := p.Query() //获得query的对象
 	return NewViewData(viewName, qd)
+}
+
+//CreateIndex  create index_name ON table_name (column1, column2, ...);
+//index_name是要创建索引的关键字， tablename是要在哪张表中创建，后面就是包含索引的列
+//查询的时候，：SELECT * FROM employees WHERE last_name = 'Smith';使用这个索引来查询
+
+func (p *SQLParser) CreateIndex() interface{} {
+	p.checkWordTag(lexer.ID)
+	indexName := p.sqlLexer.Lexeme
+	p.checkWordTag(lexer.ON)
+	p.checkWordTag(lexer.ID)
+	tableName := p.sqlLexer.Lexeme     //当前要操作的表名
+	p.checkWordTag(lexer.LEFT_BRACKET) //左括号
+	//获得字段的名字
+	fields := p.IDList()
+	p.checkWordTag(lexer.RIGHT_BRACKET) //左括号
+	idxData := NewIndexData(indexName, tableName, fields)
+	return idxData
 }
