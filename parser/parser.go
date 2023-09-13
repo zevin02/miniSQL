@@ -230,7 +230,7 @@ func (p *SQLParser) UpdateCmd() interface{} {
 	if tok.Tag == lexer.INSERT {
 		return p.Insert()
 	} else if tok.Tag == lexer.DELETE {
-		return nil
+		return p.Delete()
 	} else if tok.Tag == lexer.UPDATE {
 		return nil
 	} else if tok.Tag == lexer.CREATE {
@@ -301,7 +301,7 @@ func (p *SQLParser) checkWordTag(wordTag lexer.Tag) {
 
 func (p *SQLParser) isMatchTag(wordTag lexer.Tag) bool {
 	tok, err := p.sqlLexer.Scan()
-	if err != nil {
+	if err != nil && err != io.EOF {
 		panic(err)
 	}
 	//table后面一定要跟着一个表名,数字是不能作为一个表名
@@ -445,4 +445,19 @@ func (p *SQLParser) CreateIndex() interface{} {
 	p.checkWordTag(lexer.RIGHT_BRACKET) //左括号
 	idxData := NewIndexData(indexName, tableName, fields)
 	return idxData
+}
+
+//Delete DELETE FROM students WHERE predicate
+func (p *SQLParser) Delete() interface{} {
+	p.checkWordTag(lexer.DELETE)
+	p.checkWordTag(lexer.FROM)
+	p.checkWordTag(lexer.ID)
+	tableName := p.sqlLexer.Lexeme
+	pred := query.NewPredicate()
+	//如果当前匹配是WHERE的话，就需要获得相应的SQL语句
+	if p.isMatchTag(lexer.WHERE) {
+		pred = p.Predicate()
+	}
+
+	return NewDeleteData(tableName, pred)
 }

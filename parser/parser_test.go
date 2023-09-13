@@ -77,3 +77,13 @@ func TestIndex(t *testing.T) {
 	dd := it.(*IndexData)
 	fmt.Println(dd.ToString())
 }
+
+func TestDelete(t *testing.T) {
+	//sql := "DELETE FROM EMPLENT WHERE PERSON = 20 AND NAME = \"STU\""
+	sql := "DELETE FROM EMPLENT"
+	parser := NewSQLParser(sql)
+	it := parser.UpdateCmd()
+	dd := it.(*DeleteData)
+	assert.NotNil(t, dd)
+
+}
