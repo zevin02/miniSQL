@@ -87,3 +87,11 @@ func TestDelete(t *testing.T) {
 	assert.NotNil(t, dd)
 
 }
+
+func TestUpdate(t *testing.T) {
+	sql := "UPDATE PERSON SET AGE = 20 WHERE NAME=\"NAME\" AND PRED = 10"
+	parser := NewSQLParser(sql)
+	it := parser.UpdateCmd()
+	dd := it.(*UpdateData)
+	assert.NotNil(t, dd)
+}

@@ -232,7 +232,7 @@ func (p *SQLParser) UpdateCmd() interface{} {
 	} else if tok.Tag == lexer.DELETE {
 		return p.Delete()
 	} else if tok.Tag == lexer.UPDATE {
-		return nil
+		return p.Update()
 	} else if tok.Tag == lexer.CREATE {
 		//当前是create,进入到create的分支中
 		//p.sqlLexer.ReverseScan()
@@ -460,4 +460,21 @@ func (p *SQLParser) Delete() interface{} {
 	}
 
 	return NewDeleteData(tableName, pred)
+}
+
+func (p *SQLParser) Update() interface{} {
+	p.checkWordTag(lexer.UPDATE)
+	p.checkWordTag(lexer.ID)
+	tableName := p.sqlLexer.Lexeme
+	p.checkWordTag(lexer.SET)
+	_, fldName, _ := p.Field()
+	p.checkWordTag(lexer.ASSIGN_OPERATOR)
+	newVal, _ := p.Expression()
+
+	pred := query.NewPredicate()
+	//如果当前匹配是WHERE的话，就需要获得相应的SQL语句
+	if p.isMatchTag(lexer.WHERE) {
+		pred = p.Predicate()
+	}
+	return NewUpdateData(tableName, fldName, newVal, pred)
 }
