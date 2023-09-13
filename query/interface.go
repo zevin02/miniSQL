@@ -27,18 +27,19 @@ type Scan interface {
 	GetInt(fieldName string) int
 	GetString(fieldName string) string
 	GetVal(fieldName string) *comm.Constant
-	HashField(fieldName string) bool //判断某个字段是否存在这个表中
+	HasField(fieldName string) bool //判断某个字段是否存在这个表中
 	Close()
 }
 
 //UpdateScan 修改SQL执行后的结果
 type UpdateScan interface {
-	Scan //继承上面的Scan的接口
+	//GetScan() Scan //继承上面的Scan的接口
+	Scan
 	SetInt(fieldName string, val int)
 	SetString(fieldName string, val string)
-	SetVal(fieldName, val *comm.Constant)
-	Insert()             //在当前记录指向的位置进行插入
-	Delete()             //将当前指向的位置进行删除
-	GetRid() rm.RID      //获得当前所在的区块槽位
-	Move2Rid(rid rm.RID) //移动到指定的位置
+	SetVal(fieldName string, val *comm.Constant)
+	Insert()                      //在当前记录指向的位置进行插入
+	Delete()                      //将当前指向的位置进行删除
+	GetRid() rm.RIDInterface      //获得当前所在的区块槽位
+	Move2Rid(rid rm.RIDInterface) //移动到指定的位置
 }

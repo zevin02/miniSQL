@@ -40,7 +40,7 @@ func (p *ProductScan) Next() bool {
 }
 
 func (p *ProductScan) GetInt(fieldName string) int {
-	if p.scan1.HashField(fieldName) {
+	if p.scan1.HasField(fieldName) {
 		return p.scan1.GetInt(fieldName)
 	} else {
 		return p.scan2.GetInt(fieldName)
@@ -48,7 +48,7 @@ func (p *ProductScan) GetInt(fieldName string) int {
 }
 
 func (p *ProductScan) GetString(fieldName string) string {
-	if p.scan1.HashField(fieldName) {
+	if p.scan1.HasField(fieldName) {
 		return p.scan1.GetString(fieldName)
 	} else {
 		return p.scan2.GetString(fieldName)
@@ -56,7 +56,7 @@ func (p *ProductScan) GetString(fieldName string) string {
 }
 
 func (p *ProductScan) GetVal(fieldName string) *comm.Constant {
-	if p.scan1.HashField(fieldName) {
+	if p.scan1.HasField(fieldName) {
 		return p.scan1.GetVal(fieldName)
 	} else {
 		return p.scan2.GetVal(fieldName)
@@ -65,7 +65,7 @@ func (p *ProductScan) GetVal(fieldName string) *comm.Constant {
 
 //HashField 如果两张表中有一个满足这个表即可
 func (p *ProductScan) HashField(fieldName string) bool {
-	return p.scan1.HashField(fieldName) || p.scan2.HashField(fieldName)
+	return p.scan1.HasField(fieldName) || p.scan2.HasField(fieldName)
 }
 
 func (p *ProductScan) Close() {

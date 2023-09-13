@@ -178,7 +178,7 @@ func (t *TableScan) GetRid() RIDInterface {
 }
 
 //MoveToRid 跳转到指定的区块槽位上
-func (t *TableScan) MoveToRid(r RIDInterface) {
+func (t *TableScan) Move2Rid(r RIDInterface) {
 	t.Close() //把之前区块的数据都解除
 	blk := fm.NewBlockId(t.fileName, uint64(r.BlockNumber()))
 	t.rp = NewRecordPage(t.tx, blk, t.layout)

@@ -5,6 +5,7 @@ import "miniSQL/comm"
 /*
 	select name from student where age>20,把所有age>20的记录都取出来，但是我们只要其中的name字段
 	还有一个scan对象会在select_scan的基础上，把所有的name的给筛选出来
+	关系代数中的SELECT操作是把所有符合条件的行全部抽取出来，而不抽取相应的列
 */
 
 //SelectScan 包含相应的要扫描的表和筛选条件
@@ -35,26 +36,42 @@ func (s *SelectScan) Next() bool {
 	}
 	return false
 }
+func (s *SelectScan) Insert() {
+	s.scan.Insert()
+}
+
+func (s *SelectScan) Delete() {
+	s.scan.Delete()
+}
 
 func (s *SelectScan) GetInt(fieldName string) int {
 	return s.scan.GetInt(fieldName)
+}
+func (s *SelectScan) SetInt(fieldName string, val int) {
+	s.scan.SetInt(fieldName, val)
 }
 
 func (s *SelectScan) GetString(fieldName string) string {
 	return s.scan.GetString(fieldName)
 }
 
+func (s *SelectScan) SetString(fieldName string, val string) {
+	s.scan.SetString(fieldName, val)
+}
+
 func (s *SelectScan) GetVal(fieldName string) *comm.Constant {
 	return s.scan.GetVal(fieldName)
 }
 
-//HashField 判断某个字段是否存在这个表中
-func (s *SelectScan) HashField(fieldName string) bool {
-	return s.scan.HashField(fieldName)
+func (s *SelectScan) SetVal(fieldName string, val *comm.Constant) {
+	s.scan.SetVal(fieldName, val)
+}
+
+//HasField 判断某个字段是否存在这个表中
+func (s *SelectScan) HasField(fieldName string) bool {
+	return s.scan.HasField(fieldName)
 }
 
 func (s *SelectScan) Close() {
 	s.scan.Close()
 }
-
-//

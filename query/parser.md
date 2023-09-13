@@ -72,4 +72,13 @@ position=a+b*2
 >- 
 
 
-语法分析
+# 语法树
+关系代数中的操作符
+1. select：从关系中选取满足条件的元组:<u>使用 SELECT 语句选取满足条件 A=1 的行，即：SELECT * FROM R WHERE A=1。</u>
+2. project：从关系中选取出指定的属性列:<u> SELECT 语句选取属性 A 和 B，即：SELECT A, B FROM R。</u>
+3. product：将两个关系的元组进行组合，生成新的元素
+4. union:将两个关系和并，去除重复的元组:<u>假设有两个表格 R 和 S，包含属性 A、B、C，可以使用 UNION 语句合并两个表格，即：SELECT * FROM R UNION SELECT * FROM S。</u>
+5. diff：从一个关系去除另一个关系中存在的元组:
+6. join：将两个关系中满足条件的指定的元组进行组合，生成新的关系
+
+例如:

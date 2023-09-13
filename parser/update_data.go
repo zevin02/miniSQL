@@ -1,6 +1,8 @@
 package parser
 
-import "miniSQL/query"
+import (
+	"miniSQL/query"
+)
 
 type UpdateData struct {
 	tableName string
