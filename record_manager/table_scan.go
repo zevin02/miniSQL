@@ -87,7 +87,7 @@ func (t *TableScan) Close() {
 
 //Move2Block 读取某个区块的数据(已经开辟出来了),让日志管理器进行管理
 func (t *TableScan) Move2Block(blkNum int) {
-	t.Close()
+	t.Close()                                        //因为要移动到新的区块，所以把之前的给取消使用
 	blk := fm.NewBlockId(t.fileName, uint64(blkNum)) //构造一个新的区块
 	t.rp = NewRecordPage(t.tx, blk, t.layout)        //更新日志管理器,之前日志管理器的
 	t.currentSlot = -1

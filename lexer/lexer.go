@@ -339,8 +339,8 @@ func (l *Lexer) Scan() (*Token, error) {
 			}
 			//把小数点后面的字符进行转换
 			x = x + float64(num)/d
-			d = d * 10 //进制每次都要增加
-			l.Lexeme += string(l.peek)
+			d = d * 10                 //进制每次都要增加
+			l.Lexeme += string(l.peek) //填充当前的字符串
 		}
 		l.LexemeStack = append(l.LexemeStack, l.Lexeme)
 		token := NewToken(REAL)
@@ -360,7 +360,7 @@ func (l *Lexer) Scan() (*Token, error) {
 			if !unicode.IsLetter(rune(l.peek)) {
 				//当前已经不是字符了，说明字符串已经读取完成了，并且把读取到字符放回去
 				if l.peek != 0 {
-					l.UnRead()
+					l.UnRead() //把字符放回去
 				}
 				break
 			}

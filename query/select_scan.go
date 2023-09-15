@@ -28,7 +28,7 @@ func (s *SelectScan) BeforeFirst() {
 
 //Next 跳转到满足条件的下一条记录处
 func (s *SelectScan) Next() bool {
-	for s.scan.Next() {
+	for s.scan.Next() { //如果不满足条件，就继续往后找，找到满足条件的，就返回
 		if s.pred.IsSatisfied(s) {
 			//筛选条件满足了，就可以返回
 			return true

@@ -14,7 +14,7 @@ import (
 )
 
 func TestQuery(t *testing.T) {
-	fmgr, err := fm.NewFileManager("/home/zevin/transaction_test", 400)
+	fmgr, err := fm.NewFileManager("/home/zevin/query_test", 400)
 	lmgr, err := lm.NewLogManager(fmgr, "logfile")
 	assert.Nil(t, err)
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 3) //开辟一个缓存管理器，内存池,供使用
@@ -45,6 +45,10 @@ func TestQuery(t *testing.T) {
 	ts.SetInt("age", 19)
 	ts.SetInt("id", 890)
 
+	ts.Insert()
+	ts.SetString("name", "zevin")
+	ts.SetInt("age", 1259)
+	ts.SetInt("id", 890)
 	sql := "SELECT name,age FROM student WHERE id=890"
 	sqlParser := parser.NewSQLParser(sql) //构造sql解析器
 	queryData := sqlParser.Query()        //实现select解析，得到相应select需要的字段和条件和表名字

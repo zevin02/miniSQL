@@ -26,8 +26,8 @@ func NewRecoverManager(tx *Transaction, TxNum int32, logManager *lm.LogManager, 
 	p := fm.NewPageBySize(32)
 	p.SetInt(0, int64(START)) //写入日志类型
 	p.SetInt(UIN64_LENGTH, int64(TxNum))
-	startRecord := NewStartRecord(p, logManager)
-	startRecord.WriteStartToLog() //将当前的数据，写成二进制形式的日志
+	startRecord := NewStartRecord(p, logManager) //把当前的事务号存储起来
+	startRecord.WriteStartToLog()                //将当前的数据，写成二进制形式的日志
 	return rm
 }
 
