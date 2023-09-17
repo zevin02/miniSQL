@@ -44,14 +44,14 @@ func TestTransaction(t *testing.T) {
 	tx3 := NewTransaction(fmgr, lmgr, bmgr)
 	tx3.Pin(blk) //同样该事务操作的也是同样的文件块
 	assert.Equal(t, int32(3), tx3.txNum)
-	ival, _ = tx2.GetInt(blk, 80)
-	sval, _ = tx2.GetString(blk, 40)
+	ival, _ = tx3.GetInt(blk, 80)
+	sval, _ = tx3.GetString(blk, 40)
 	assert.Equal(t, int64(2), ival)
 	assert.Equal(t, "one!", sval)
 	fmt.Println("initial value at location 80 = ", ival)
 	fmt.Println("initial value at location 40 = ", sval)
 	tx3.SetInt(blk, 80, 999, true) //
-	ival, _ = tx2.GetInt(blk, 80)
+	ival, _ = tx3.GetInt(blk, 80)
 	assert.Equal(t, int64(999), ival)
 	fmt.Println("initial value at location 80 = ", ival)
 	//因为tx2没有调用commit，所以这个时候rollback就需要恢复到第一次commit时的数值

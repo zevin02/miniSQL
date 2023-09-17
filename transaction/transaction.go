@@ -51,7 +51,7 @@ func NewTransaction(fileManager *fm.FileManager, logManager *lm.LogManager, buff
 
 //lock point（锁点）：当前事务获得最后一把锁的时间节点,使用两阶段锁可以保证实现事务之间执行的串型化，但是两阶段锁不会确保不会出现死锁，也可能会导致迭代rollback
 
-//Commit 将当前的事务进行提交
+//Commit 将当前的事务进行提交,并把当前数据刷盘
 func (t *Transaction) Commit() {
 	//在commit之前把锁给释放掉，收缩阶段(事务必须锁，事务不能在获得锁)的，严格两阶段锁
 	t.concurrentMgr.Realse()
@@ -119,6 +119,7 @@ func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) (int64, error) {
 	if err != nil {
 		return -1, err
 	}
+	//mybuf中没有数据
 	buff := t.myBuffers.getBuf(blk)
 	if buff == nil {
 		//当前区块的数据并不存在

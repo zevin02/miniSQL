@@ -5,6 +5,7 @@ import (
 	fm "miniSQL/file_manager"
 	lm "miniSQL/logManager"
 	"testing"
+	"time"
 )
 
 func TestBufferManager(t *testing.T) {
@@ -53,4 +54,42 @@ func TestBufferManager(t *testing.T) {
 	assert.Nil(t, err)
 	_, err = bm.Pin(fm.NewBlockId("testfile", 6)) //缓存页面已经使用完了，这里分配应该返回错误
 	assert.NotNil(t, err)
+}
+func TestBufferManager2(t *testing.T) {
+	fileManager, err := fm.NewFileManager("/home/zevin/buffer_test", 400) //打开一个文件管理器来管理文件
+	assert.Nil(t, err)
+	logManager, err := lm.NewLogManager(fileManager, "logfile")
+	assert.Nil(t, err)
+	assert.NotNil(t, logManager)
+	bm := NewBufferManager(fileManager, logManager, 10) //缓存池中有3个缓存页面
+	buff1, err := bm.Pin(fm.NewBlockId("testfile", 1))  //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff1)
+	buff2, err := bm.Pin(fm.NewBlockId("testfile", 2)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff2)
+
+	buff3, err := bm.Pin(fm.NewBlockId("testfile", 3)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff3)
+	buff4, err := bm.Pin(fm.NewBlockId("testfile", 4)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff4)
+	buff5, err := bm.Pin(fm.NewBlockId("testfile", 5)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff5)
+	buff6, err := bm.Pin(fm.NewBlockId("testfile", 6)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff6)
+	buff7, err := bm.Pin(fm.NewBlockId("testfile", 7)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff7)
+	buff8, err := bm.Pin(fm.NewBlockId("testfile", 8)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff8)
+	buff9, err := bm.Pin(fm.NewBlockId("testfile", 9))   //我们首先先读取第一个区块的内容
+	buff10, err := bm.Pin(fm.NewBlockId("testfile", 10)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff10)
+	time.Sleep(2 * time.Second)
+	buff11, err := bm.Pin(fm.NewBlockId("testfile", 9)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff11)
+	assert.Equal(t, buff9, buff11)
+	for i := 1; i < 9; i++ {
+		bm.Pin(fm.NewBlockId("testfile", uint64(i)))
+	}
+	bm.Pin(fm.NewBlockId("testfile", uint64(7)))
+	bm.Unpin(buff10)
+	bm.Pin(fm.NewBlockId("testfile", uint64(11)))
 }

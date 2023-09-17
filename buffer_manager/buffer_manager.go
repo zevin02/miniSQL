@@ -2,6 +2,7 @@ package buffer_manager
 
 import (
 	"errors"
+	"miniSQL/container"
 	fm "miniSQL/file_manager"
 	lm "miniSQL/logManager"
 	"sync"
@@ -28,12 +29,14 @@ type BufferManager struct {
 	bufferPool   []*Buffer //缓存池
 	numAvailable uint32    //缓存池中有多少个页面可以使用
 	mu           sync.RWMutex
+	lruCache     *container.LRUCache
 }
 
 //NewBufferManager 开辟一个缓存管理器对象
 func NewBufferManager(fileManager *fm.FileManager, logManager *lm.LogManager, numBuffer uint32) *BufferManager {
 	bufferManager := &BufferManager{
 		numAvailable: numBuffer, //有多少个页面可以使用
+		lruCache:     container.NewLRUCache(int(numBuffer), time.Second, 0.25),
 	}
 
 	//根据缓存池中的数量来分配需要buffer,开辟内存池
@@ -119,6 +122,19 @@ func (b *BufferManager) waitingTooLong(start time.Time) bool {
 
 //tryPin 尝试去获得一块buffer的数据
 func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
+	//从LRU缓存中获得缓存页面
+	if cacheItem, ok := b.lruCache.Get(blk.HashCode()); ok {
+		//得到了缓存页
+		buffer := cacheItem.(*Buffer)
+		//if !buffer.IsPinned() {
+		//	//当前缓存页没有被使用，就刷新到磁盘上
+		//	//buffer.Assign2Block(blk) //将这个缓存页表进行刷盘
+		//	buffer.Assign2BlockByCache(blk)
+		//}
+		buffer.Pin() //增加引用计数
+		return buffer
+	}
+	//LRU缓存中不存在，尝试从buffer pool中获取
 	buff := b.findExistingBuffer(blk) //在buffer管理器中检查给定区块是否已经被读取到缓冲区中了
 	if buff == nil {
 		//当前区块没有被读取到，那么就需要去将当前区块从磁盘中读取上来,在这里如果缓存已经满了，就需要执行页面替换
@@ -129,6 +145,7 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 		}
 		//分配完缓存页面之后，将blk指向区块的数据读取到缓存中进行管理,如果当前区块之前有缓存数据的话，就需要将该区块缓存的数据给刷新到磁盘中
 		buff.Assign2Block(blk)
+		b.lruCache.Set(blk.HashCode(), buff) //将这个缓存页表加入到缓存中
 	}
 	if buff.IsPinned() == false {
 		//如果当前的buffer=0,说明还没有人使用，同时申请成功了

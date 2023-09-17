@@ -17,8 +17,8 @@ func TestQuery(t *testing.T) {
 	fmgr, err := fm.NewFileManager("/home/zevin/query_test", 400)
 	lmgr, err := lm.NewLogManager(fmgr, "logfile")
 	assert.Nil(t, err)
-	bmgr := bm.NewBufferManager(fmgr, lmgr, 3) //开辟一个缓存管理器，内存池,供使用
-	tx1 := tx.NewTransaction(fmgr, lmgr, bmgr) //存放入文件管理，日志管理，内存池管理
+	bmgr := bm.NewBufferManager(fmgr, lmgr, 10) //开辟一个缓存管理器，内存池,供使用
+	tx1 := tx.NewTransaction(fmgr, lmgr, bmgr)  //存放入文件管理，日志管理，内存池管理
 	//创建一个表结构
 	sch := rm.NewSchema()
 	sch.AddStringField("name", 16)

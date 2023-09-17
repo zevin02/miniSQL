@@ -1,7 +1,5 @@
 package parser
 
-import "miniSQL/lexer"
-
 /*
 	什么叫做语法：给定0-9数字，操作符，+-（）
 合法：0,9,（1+2），（1+(2+3)）,
@@ -20,15 +18,15 @@ import "miniSQL/lexer"
  a->number! syntax error语法错误
 */
 
-type SimpleParser struct {
-	lexer *lexer.Lexer //词法解析器
-}
-
-func NewSimpleParser(lexer *lexer.Lexer) *SimpleParser {
-	return &SimpleParser{
-		lexer: lexer,
-	}
-}
+//type SimpleParser struct {
+//	lexer *lexer.Lexer //词法解析器
+//}
+//
+//func NewSimpleParser(lexer *lexer.Lexer) *SimpleParser {
+//	return &SimpleParser{
+//		lexer: lexer,
+//	}
+//}
 
 //1: list-> "("list ")"
 //2: list-> list+ list
@@ -37,10 +35,10 @@ func NewSimpleParser(lexer *lexer.Lexer) *SimpleParser {
 //5:number->0|1|9,这些就是推导规则
 
 //把这些规则实现
-func (s *SimpleParser) List() error {
-
-}
-
-func (s *SimpleParser) Parse() {
-
-}
+//func (s *SimpleParser) List() error {
+//
+//}
+//
+//func (s *SimpleParser) Parse() {
+//
+//}

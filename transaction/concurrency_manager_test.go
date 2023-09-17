@@ -14,7 +14,7 @@ func TestConcurrencyManager(t *testing.T) {
 	/*
 		出航舰3个线程，每个线程对应一个事务，这些事务都去读写相同的区块，判断区块读写时加锁的逻辑是否正确
 	*/
-	fmgr, err := fm.NewFileManager("/home/zevin/transaction_test", 400)
+	fmgr, err := fm.NewFileManager("/home/zevin/concurrency_test", 400)
 	lmgr, _ := lm.NewLogManager(fmgr, "logfile")
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 3) //开辟一个缓存管理器，内存池,供使用
 	assert.Nil(t, err)

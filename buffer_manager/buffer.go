@@ -60,9 +60,18 @@ func (b *Buffer) ModifyingTx() int32 {
 	return b.txnum
 }
 
-//Assign2Block 将指定BlockId数据从磁盘读取到缓存中
+//Assign2Block 将指定BlockId数据从磁盘读取到缓存中,这个是普通没有从缓存读取的时候使用
 func (b *Buffer) Assign2Block(blockId *fm.BlockId) {
 	b.Flush()                               //先将当前的缓存数据写入到磁盘中，避免数据的丢失
+	b.blk = blockId                         //更新当前缓存指向的block块位置
+	b.fileManager.Read(b.blk, b.Contents()) //将blk的数据读取到Page缓存中
+	b.pins = 0                              //当前是新读的一个page页面，所以引用计数为0
+}
+
+func (b *Buffer) Assign2BlockByCache(blockId *fm.BlockId) {
+	b.logManager.FlushByLSN(b.lsn)           //把小于当前编号的日志都刷新到磁盘中,为以后系统的崩溃恢复提供支持
+	b.fileManager.Write(b.blk, b.Contents()) //将已经修改好的数据写回到磁盘中
+	b.txnum = -1
 	b.blk = blockId                         //更新当前缓存指向的block块位置
 	b.fileManager.Read(b.blk, b.Contents()) //将blk的数据读取到Page缓存中
 	b.pins = 0                              //当前是新读的一个page页面，所以引用计数为0

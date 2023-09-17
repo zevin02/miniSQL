@@ -55,7 +55,22 @@ func TestMetaDataManager(t *testing.T) {
 	fmt.Println("distinct for a mytable is ", si.DistinctValue("A"))
 	fmt.Println("distinct for b mytable is ", si.DistinctValue("B"))
 	//统计视图信息
-	viewDef := "select B from mytable where A =1"
+	viewDef := "select B from mytable where A=1"
+	mdm.CreateView("viewA", viewDef, tx)
+	v, err := mdm.GetViewDef("viewA", tx)
+	assert.Nil(t, err)
+	assert.Equal(t, viewDef, v)
+	tx.Commit()
+}
+func TestMetaDataManager2(t *testing.T) {
+	fmgr, _ := fm.NewFileManager("/home/zevin/meta_test", 400)
+	lmgr, _ := lm.NewLogManager(fmgr, "logfile")
+	bmgr := bm.NewBufferManager(fmgr, lmgr, 3)
+	tx := tx.NewTransaction(fmgr, lmgr, bmgr)
+
+	mdm, err := NewMetaDataManager(true, tx)
+	assert.Nil(t, err)
+	viewDef := "select B from mytable where A=1"
 	mdm.CreateView("viewA", viewDef, tx)
 	v, err := mdm.GetViewDef("viewA", tx)
 	assert.Nil(t, err)
