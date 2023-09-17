@@ -107,6 +107,10 @@ func (b *BufferManager) Unpin(buffer *Buffer) {
 	if !buffer.IsPinned() {
 		//如果当前buffer的引用计数=0,就可以继续进行分配给其他人使用了
 		b.numAvailable++ //可用的buffer数+1
+		b.lruCache.Remove(buffer.blk.HashCode())
+		if buffer.txnum != -1 {
+			buffer.Flush()
+		}
 		//NoTifyALL 唤醒所有在尝试pin页面的组建，唤醒来调用新的page,并发管理器的内容
 	}
 }
@@ -144,7 +148,7 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 			return nil
 		}
 		//分配完缓存页面之后，将blk指向区块的数据读取到缓存中进行管理,如果当前区块之前有缓存数据的话，就需要将该区块缓存的数据给刷新到磁盘中
-		buff.Assign2Block(blk)
+		buff.Assign2Block(blk)               //先落盘
 		b.lruCache.Set(blk.HashCode(), buff) //将这个缓存页表加入到缓存中
 	}
 	if buff.IsPinned() == false {

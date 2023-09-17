@@ -16,7 +16,7 @@ const (
 
 //ViewManager 视图管理器
 type ViewManager struct {
-	tblgr *TableManager
+	tblgr *TableManager //表管理器
 }
 
 //NewViewManager 创建一个视图管理器,当前表就两个字段，【viewname,viewdef】

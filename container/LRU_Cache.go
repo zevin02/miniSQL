@@ -172,3 +172,15 @@ func isEqual(a, b *list.Element) bool {
 	}
 	return itemA.key == itemB.key
 }
+
+// Remove 从LRU缓存中移除指定的缓存页
+func (c *LRUCache) Remove(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if elem, ok := c.cache[key]; ok {
+		list := c.findList(elem)
+		list.Remove(elem)
+		delete(c.cache, key)
+	}
+}

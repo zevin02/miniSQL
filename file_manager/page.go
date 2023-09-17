@@ -24,6 +24,13 @@ func NewPageByBytes(bytes []byte) *Page {
 	}
 }
 
+// Copy constructor for Page
+func (p *Page) Copy() *Page {
+	newData := make([]byte, len(p.buffer))
+	copy(newData, p.buffer)
+	return &Page{newData}
+}
+
 //GetInt 根据offset从缓冲区里面读取一个uint64的数据出来
 func (p *Page) GetInt(offset uint64) int64 {
 	num := binary.LittleEndian.Uint64(p.buffer[offset : offset+8]) //读取出来一个8字节大小的数

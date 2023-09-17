@@ -62,8 +62,9 @@ func (b *Buffer) ModifyingTx() int32 {
 
 //Assign2Block 将指定BlockId数据从磁盘读取到缓存中,这个是普通没有从缓存读取的时候使用
 func (b *Buffer) Assign2Block(blockId *fm.BlockId) {
-	b.Flush()                               //先将当前的缓存数据写入到磁盘中，避免数据的丢失
-	b.blk = blockId                         //更新当前缓存指向的block块位置
+	b.Flush()       //先将当前的缓存数据写入到磁盘中，避免数据的丢失
+	b.blk = blockId //更新当前缓存指向的block块位置
+	//在这个地方就会对数据进行修改
 	b.fileManager.Read(b.blk, b.Contents()) //将blk的数据读取到Page缓存中
 	b.pins = 0                              //当前是新读的一个page页面，所以引用计数为0
 }
@@ -94,4 +95,19 @@ func (b *Buffer) Pin() {
 //Unpin 减小引用计数
 func (b *Buffer) Unpin() {
 	b.pins--
+}
+
+//Copy 对buffer实现一个拷贝构造
+func (b *Buffer) Copy() *Buffer {
+	// 创建一个新的 Buffer 对象
+	newBuffer := &Buffer{
+		fileManager: b.fileManager,
+		logManager:  b.logManager,
+		contents:    b.contents.Copy(), // 创建内容的深拷贝
+		blk:         b.blk,
+		pins:        b.pins,
+		txnum:       b.txnum,
+		lsn:         b.lsn,
+	}
+	return newBuffer
 }
