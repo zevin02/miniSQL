@@ -3,6 +3,7 @@ package buffer_manager
 import (
 	fm "miniSQL/file_manager"
 	lm "miniSQL/logManager"
+	"sync"
 )
 
 //Page ([]byte)包装了缓冲区的中的数据,setint,getint,setstring,getstring
@@ -18,6 +19,7 @@ type Buffer struct {
 	pins     uint32      //当前buffer的引用计数,=0的时候就可以释放了
 	txnum    int32       //当前buffer目前在管理事务号
 	lsn      uint64      //当前buffer执行操作对应的日志号
+	lock     sync.Mutex
 }
 
 func NewBuffer(fileManager *fm.FileManager, logManager *lm.LogManager) *Buffer {
@@ -62,6 +64,8 @@ func (b *Buffer) ModifyingTx() int32 {
 
 //Assign2Block 将指定BlockId数据从磁盘读取到缓存中,这个是普通没有从缓存读取的时候使用
 func (b *Buffer) Assign2Block(blockId *fm.BlockId) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	b.Flush()       //先将当前的缓存数据写入到磁盘中，避免数据的丢失
 	b.blk = blockId //更新当前缓存指向的block块位置
 	//在这个地方就会对数据进行修改

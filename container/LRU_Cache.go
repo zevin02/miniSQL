@@ -190,3 +190,7 @@ func (c *LRUCache) Contain(key string) bool {
 	_, ok := c.cache[key]
 	return ok //判断某一个区块是否存在
 }
+
+func (c *LRUCache) Items() map[string]*list.Element {
+	return c.cache
+}

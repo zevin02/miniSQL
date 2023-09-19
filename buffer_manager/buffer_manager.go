@@ -17,6 +17,11 @@ import (
 
 	当前页面写入磁盘：情况一：当前页面读取其他区块的数据
 				   情况二：相应的写接口被调用
+
+	磁盘预读：磁盘的提前加载符合局部性原理，可以减少磁盘的IO，我们能把需要的页提前加入到缓冲池中，避免未来的磁盘IO操作
+	我们需要让预读失败的页，停留再LRU中的时间尽可能短，
+
+
 */
 
 //如果有3个buffer，4个请求，那么前3个请求得到了，第4个请求就需要进行等待，最多等待3s
@@ -94,6 +99,13 @@ func (b *BufferManager) Pin(blk *fm.BlockId) (*Buffer, error) {
 			return nil, errors.New("No buffer available,careful for dead lock")
 		}
 	}
+	//读取pin成功之后，再尝试看看能不能提前得到
+	nextBlk := fm.NewBlockId(blk.FileName(), blk.Number()+1)
+	//通过后台进行读取
+	if !b.lruCache.Contain(nextBlk.HashCode()) {
+		//检查前一个page是否存在，如果当前不存在，就需要进行异步的读取,同时把检查未被pin过的缓存页表
+		b.asyncPreRead(nextBlk)
+	}
 	return buff, nil
 }
 
@@ -141,6 +153,7 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 	}
 	//LRU缓存中不存在，尝试从buffer pool中获取
 	buff := b.findExistingBuffer(blk) //在buffer管理器中检查给定区块是否已经被读取到缓冲区中了
+
 	if buff == nil {
 		//当前区块没有被读取到，那么就需要去将当前区块从磁盘中读取上来,在这里如果缓存已经满了，就需要执行页面替换
 		buff = b.chooseUnpinBuffer() //查看是否还有可用的缓存页面，有的话， 就的可以得到当前的buffer块，同时需要将给定磁盘数据写入缓存中,
@@ -155,17 +168,7 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 		b.lruCache.Set(blk.HashCode(), buff) //将这个缓存页表加入到缓存中
 
 		//预先读取相邻的page
-		nextBlk := fm.NewBlockId(blk.FileName(), blk.Number()-1)
-		preBlk := fm.NewBlockId(blk.FileName(), blk.Number()+1)
-		//通过后台进行读取
-		if !b.lruCache.Contain(nextBlk.HashCode()) {
-			//检查前一个page是否存在，如果当前不存在，就需要进行异步的读取,同时把检查未被pin过的缓存页表
 
-		}
-		if !b.lruCache.Contain(preBlk.HashCode()) {
-			//检查后一个page是否存在，如果当前不存在，就需要进行异步的读取
-
-		}
 	}
 	if buff.IsPinned() == false {
 		//如果当前的buffer=0,说明还没有人使用，同时申请成功了
@@ -198,5 +201,31 @@ func (b *BufferManager) chooseUnpinBuffer() *Buffer {
 		}
 	}
 	//说明全部的buffer都被使用了
+	return nil
+}
+
+//asyncPreRead 异步的进行磁盘数据的预读取
+//先检查当前区块是否存在，再将数据读取上来，先不进行pin，添加到LRU中，等待LRU读取的时候，再占用，如果这个块一直没有被使用，因为没有被pin，所以后续别的块也可以使用
+//同时由于他一直没有被使用，一直在冷链表中，所以在缓存淘汰的时候，也会优先被淘汰
+func (b *BufferManager) asyncPreRead(blk *fm.BlockId) error {
+	//先查看是否能获得一个缓存块
+	buff := b.chooseUnpinBuffer()
+	if buff == nil {
+		return nil
+	}
+	//当前获得了一个缓存块
+	size, err := buff.fileManager.Size(blk.FileName()) //获得当前的size大小
+	if err != nil {
+		return err
+	}
+	if blk.Number() >= size || blk.Number() < 0 {
+		//当前的blk不合法，直接就可以返回
+		return nil
+	}
+	//当前的blk合法
+	buff.Assign2Block(blk) //把这个缓存块之前的值先把他落盘
+
+	b.lruCache.Set(blk.HashCode(), buff) //添加到LRU缓存中
+	//不需要把这个blk集逆性pin，在lru缓存读取到这个blk的时候，才会进行pin
 	return nil
 }
