@@ -4,6 +4,11 @@ import "miniSQL/comm"
 
 //ProductScan 两张表查询管理,分别遍历两张表，笛卡尔集，多表查询，将两张表中的每一行都和另一表的每一行组合的操作
 //inner join
+/*
+	他一次从左边表中抽取一行记录，和右边表中的每一行组合，如果左边的表的行数和列数是LR，LC，右边表的行数和列数是RR,RC
+	处理完的新行数LR*RR，列数是LC+RC
+
+*/
 type ProductScan struct {
 	scan1 Scan //第一张表的查询
 	scan2 Scan //第二张表的查询

@@ -26,6 +26,7 @@ const (
 
 //BufferManager 缓存管理器
 type BufferManager struct {
+	//TODO 可以将缓存池分成多个，降低锁的粒度
 	bufferPool   []*Buffer //缓存池
 	numAvailable uint32    //缓存池中有多少个页面可以使用
 	mu           sync.RWMutex
@@ -62,7 +63,7 @@ func (b *BufferManager) FlushAll(txnum int32) {
 
 	for _, buffer := range b.bufferPool {
 		if buffer.ModifyingTx() == txnum {
-			buffer.Flush() //如果当前buffer中正在修改的数据就是txbum，那么这个buffer就可以被刷新到磁盘中了
+			go buffer.Flush() //如果当前buffer中正在修改的数据就是txbum，那么这个buffer就可以被刷新到磁盘中了
 		}
 	}
 }
@@ -135,7 +136,7 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 		//	//buffer.Assign2Block(blk) //将这个缓存页表进行刷盘
 		//	buffer.Assign2BlockByCache(blk)
 		//}
-		buffer.Pin() //增加引用计数
+		buffer.Pin() //增加引用计数，获得到之后，就需要增加引用计数，把当前page占用了
 		return buffer
 	}
 	//LRU缓存中不存在，尝试从buffer pool中获取
@@ -148,8 +149,23 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 			return nil
 		}
 		//分配完缓存页面之后，将blk指向区块的数据读取到缓存中进行管理,如果当前区块之前有缓存数据的话，就需要将该区块缓存的数据给刷新到磁盘中
+		//TODO 可以在读取缓存页的时候，进行提前的预读取
+
 		buff.Assign2Block(blk)               //先落盘
 		b.lruCache.Set(blk.HashCode(), buff) //将这个缓存页表加入到缓存中
+
+		//预先读取相邻的page
+		nextBlk := fm.NewBlockId(blk.FileName(), blk.Number()-1)
+		preBlk := fm.NewBlockId(blk.FileName(), blk.Number()+1)
+		//通过后台进行读取
+		if !b.lruCache.Contain(nextBlk.HashCode()) {
+			//检查前一个page是否存在，如果当前不存在，就需要进行异步的读取,同时把检查未被pin过的缓存页表
+
+		}
+		if !b.lruCache.Contain(preBlk.HashCode()) {
+			//检查后一个page是否存在，如果当前不存在，就需要进行异步的读取
+
+		}
 	}
 	if buff.IsPinned() == false {
 		//如果当前的buffer=0,说明还没有人使用，同时申请成功了
@@ -159,7 +175,6 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 	return buff
 }
 
-//TODO 进行LRU内存淘汰
 //findExistingBuffer 检查需要的blockid是否已经存在了
 func (b *BufferManager) findExistingBuffer(blk *fm.BlockId) *Buffer {
 	for _, buffer := range b.bufferPool {

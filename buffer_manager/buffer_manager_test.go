@@ -40,6 +40,8 @@ func TestBufferManager(t *testing.T) {
 	buff4, err := bm.Pin(fm.NewBlockId("testfile", 1)) //当前区块已经存在了，所以会直接增加引用计数，直接获得该区块，而不用去分配
 	assert.Nil(t, err)
 	p2 := buff4.Contents() //先获得当前区块的内容
+	n1 := p2.GetInt(80)
+	assert.Equal(t, int64(1), n1)
 	p2.SetInt(80, 9999)
 	buff4.SetModify(1, 0) //当前修改了，所以需要使用这个
 	bm.Unpin(buff4)       //这里面的数据不会写入到磁盘中的
@@ -48,8 +50,8 @@ func TestBufferManager(t *testing.T) {
 	page := fm.NewPageBySize(400)
 	b1 := fm.NewBlockId("testfile", 1) //读取前面的buffer1的数据
 	fileManager.Read(b1, page)
-	n1 := page.GetInt(80)
-	assert.Equal(t, n1, n+1)
+	n1 = page.GetInt(80)
+	assert.Equal(t, int64(9999), n1)
 	_, err = bm.Pin(fm.NewBlockId("testfile", 5)) //缓存页面已经使用完了，这里分配应该返回错误
 	assert.Nil(t, err)
 	_, err = bm.Pin(fm.NewBlockId("testfile", 6)) //缓存页面已经使用完了，这里分配应该返回错误
