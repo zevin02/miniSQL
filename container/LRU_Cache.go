@@ -139,19 +139,19 @@ func (c *LRUCache) moveToHotArea(elem *list.Element) {
 func (c *LRUCache) evict() {
 	for len(c.cache) == c.capacity {
 		if c.coldDataList.Len() != 0 {
-			elem := c.coldDataList.Back()                    //如果当前的冷链表不为空，就需要从冷链表中进行删除
-			item := c.coldDataList.Remove(elem).(*CacheItem) //将当前的元素从冷链表中删除
-			delete(c.cache, item.key)                        //将当前的元素从缓存中删除
-
+			c.remove(c.coldDataList)
 		} else if c.hotDataList.Len() != 0 {
-			elem := c.hotDataList.Back()                    //如果当前的热链表不为空，就需要从热链表中进行删除
-			item := c.hotDataList.Remove(elem).(*CacheItem) //将当前的元素从热链表中删除
-			delete(c.cache, item.key)                       //将当前的元素从缓存中删除
+			c.remove(c.hotDataList)
 		}
 
 	}
 }
 
+func (c *LRUCache) remove(l *list.List) {
+	elem := l.Back()
+	item := l.Remove(elem).(*CacheItem)
+	delete(c.cache, item.key)
+}
 func (c *LRUCache) findList(elem *list.Element) *list.List {
 	if elem.Value.(*CacheItem).loocation == COLD {
 		return c.coldDataList

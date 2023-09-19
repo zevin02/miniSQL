@@ -18,6 +18,7 @@ import (
 
 	当前页面写入磁盘：情况一：当前页面读取其他区块的数据
 				   情况二：相应的写接口被调用
+			       情况3：当前事务调用commit接口，结束事务的时候，就会脏页刷新到磁盘中
 
 	磁盘预读：磁盘的提前加载符合局部性原理，可以减少磁盘的IO，我们能把需要的页提前加入到缓冲池中，避免未来的磁盘IO操作
 	我们需要让预读失败的页，停留再LRU中的时间尽可能短，
@@ -40,7 +41,9 @@ type BufferManager struct {
 	numAvailable uint32    //缓存池中有多少个页面可以使用
 	mu           sync.RWMutex
 	lruCache     *container.LRUCache
-	freelist     *list.List //管理空闲页
+	freelist     *list.List         //管理空闲页
+	dirtylist    map[string]*Buffer //管理脏页
+	//再添加一个脏页管理器，定时会把脏页数据刷新到磁盘上
 }
 
 //NewBufferManager 开辟一个缓存管理器对象
@@ -49,6 +52,7 @@ func NewBufferManager(fileManager *fm.FileManager, logManager *lm.LogManager, nu
 		numAvailable: numBuffer, //有多少个页面可以使用
 		lruCache:     container.NewLRUCache(int(numBuffer), time.Second, 0.25),
 		freelist:     list.New(),
+		dirtylist:    make(map[string]*Buffer),
 	}
 
 	//根据缓存池中的数量来分配需要buffer,开辟内存池
@@ -72,12 +76,22 @@ func (b *BufferManager) FlushAll(txnum int32) {
 	//将所有txnum相同事务中的数据全都刷新到磁盘中
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	//在缓冲池中查找脏页符合txnum
 
-	for _, buffer := range b.bufferPool {
+	var toDelete []*Buffer //把脏页集合起来
+	//从当前的脏页池中把相关的筛选出来
+	for _, buffer := range b.dirtylist {
 		if buffer.ModifyingTx() == txnum {
-			go buffer.Flush() //如果当前buffer中正在修改的数据就是txbum，那么这个buffer就可以被刷新到磁盘中了
+			buffer.Flush() //把当前的缓冲区给刷新到磁盘中
+			//再把这个节点删除掉
+			toDelete = append(toDelete, buffer)
 		}
 	}
+	//在脏页缓存区在把这些给删除掉
+	for _, buffer := range toDelete {
+		delete(b.dirtylist, buffer.blk.HashCode())
+	}
+
 }
 
 //Pin 将给定磁盘文件的区块数据分配给缓存页面,相当于内存分配，new
@@ -130,7 +144,13 @@ func (b *BufferManager) Unpin(buffer *Buffer) {
 		b.lruCache.Remove(buffer.blk.HashCode())
 
 		if buffer.txnum != -1 {
-			buffer.Flush()
+			//如果当前的buffer不在脏页区中，就不需要刷新
+			if _, ok := b.dirtylist[buffer.blk.HashCode()]; ok {
+				buffer.Flush()
+				delete(b.dirtylist, buffer.blk.HashCode())
+			}
+			//这个刷盘完了，就把这个buffer给删除掉
+
 		}
 		b.freelist.PushFront(buffer) //添加到空闲列表中
 		//NoTifyALL 唤醒所有在尝试pin页面的组建，唤醒来调用新的page,并发管理器的内容
@@ -217,4 +237,15 @@ func (b *BufferManager) asyncPreRead(blk *fm.BlockId) error {
 	b.lruCache.Set(blk.HashCode(), buff) //添加到LRU缓存中
 	//不需要把这个blk集逆性pin，在lru缓存读取到这个blk的时候，才会进行pin
 	return nil
+}
+
+//AddToDirty 把当前的buff添加到脏页列表中
+func (b *BufferManager) AddToDirty(buff *Buffer) {
+	_, ok := b.dirtylist[buff.blk.HashCode()]
+	if ok {
+		//如果当前的脏页已经存在了，就不需要添加了
+	} else {
+		//将当前的缓存页添加到脏页列表进行管理
+		b.dirtylist[buff.blk.HashCode()] = buff
+	}
 }

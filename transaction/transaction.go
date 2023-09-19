@@ -170,6 +170,9 @@ func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog 
 	p.SetInt(offset, val) //往该缓存页中写入数据
 	//该缓存页改动过活，如果他分发给其他人使用的话，就需要写入磁盘
 	buff.SetModify(t.txNum, lsn) //更新当前buffer对应的事务以及日志，标记该缓存已经被修改了
+	//添加这个到脏页
+	t.bufferManager.AddToDirty(buff)
+
 	return nil
 }
 
@@ -200,6 +203,8 @@ func (t *Transaction) SetString(blk *fm.BlockId, offset uint64, val string, okTo
 	p.SetString(offset, val) //往该缓存页中写入数据
 	//该缓存页改动过活，如果他分发给其他人使用的话，就需要写入磁盘
 	buff.SetModify(t.txNum, lsn) //记录下写入之前的信息
+	t.bufferManager.AddToDirty(buff)
+
 	return nil
 }
 
