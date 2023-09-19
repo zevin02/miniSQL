@@ -1,6 +1,7 @@
 package buffer_manager
 
 import (
+	"container/list"
 	"errors"
 	"miniSQL/container"
 	fm "miniSQL/file_manager"
@@ -21,6 +22,8 @@ import (
 	磁盘预读：磁盘的提前加载符合局部性原理，可以减少磁盘的IO，我们能把需要的页提前加入到缓冲池中，避免未来的磁盘IO操作
 	我们需要让预读失败的页，停留再LRU中的时间尽可能短，
 
+	我们不能遍历这一片连续的内存空间来找到空闲的缓存页，这个效率非常低，所以为了能够快速找到空闲的缓存页表，可以使用链表结构，将空闲的缓存页作为链表的节点（free链表）
+
 
 */
 
@@ -32,10 +35,12 @@ const (
 //BufferManager 缓存管理器
 type BufferManager struct {
 	//TODO 可以将缓存池分成多个，降低锁的粒度
+
 	bufferPool   []*Buffer //缓存池
 	numAvailable uint32    //缓存池中有多少个页面可以使用
 	mu           sync.RWMutex
 	lruCache     *container.LRUCache
+	freelist     *list.List //管理空闲页
 }
 
 //NewBufferManager 开辟一个缓存管理器对象
@@ -43,12 +48,14 @@ func NewBufferManager(fileManager *fm.FileManager, logManager *lm.LogManager, nu
 	bufferManager := &BufferManager{
 		numAvailable: numBuffer, //有多少个页面可以使用
 		lruCache:     container.NewLRUCache(int(numBuffer), time.Second, 0.25),
+		freelist:     list.New(),
 	}
 
 	//根据缓存池中的数量来分配需要buffer,开辟内存池
 	for i := uint32(0); i < numBuffer; i++ {
 		buffer := NewBuffer(fileManager, logManager)                        //申请一个buffer出来
 		bufferManager.bufferPool = append(bufferManager.bufferPool, buffer) //将申请的buffer添加到池中进行管理
+		bufferManager.freelist.PushFront(buffer)                            //把当前的节点放到freelist中进行管理
 	}
 	return bufferManager
 }
@@ -121,9 +128,11 @@ func (b *BufferManager) Unpin(buffer *Buffer) {
 		//如果当前buffer的引用计数=0,就可以继续进行分配给其他人使用了
 		b.numAvailable++ //可用的buffer数+1
 		b.lruCache.Remove(buffer.blk.HashCode())
+
 		if buffer.txnum != -1 {
 			buffer.Flush()
 		}
+		b.freelist.PushFront(buffer) //添加到空闲列表中
 		//NoTifyALL 唤醒所有在尝试pin页面的组建，唤醒来调用新的page,并发管理器的内容
 	}
 }
@@ -143,33 +152,25 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 	if cacheItem, ok := b.lruCache.Get(blk.HashCode()); ok {
 		//得到了缓存页
 		buffer := cacheItem.(*Buffer)
-		//if !buffer.IsPinned() {
-		//	//当前缓存页没有被使用，就刷新到磁盘上
-		//	//buffer.Assign2Block(blk) //将这个缓存页表进行刷盘
-		//	buffer.Assign2BlockByCache(blk)
-		//}
+
 		buffer.Pin() //增加引用计数，获得到之后，就需要增加引用计数，把当前page占用了
 		return buffer
 	}
 	//LRU缓存中不存在，尝试从buffer pool中获取
-	buff := b.findExistingBuffer(blk) //在buffer管理器中检查给定区块是否已经被读取到缓冲区中了
 
+	//当前区块没有被读取到，那么就需要去将当前区块从磁盘中读取上来,在这里如果缓存已经满了，就需要执行页面替换
+	buff := b.chooseUnpinBuffer() //查看是否还有可用的缓存页面，有的话， 就的可以得到当前的buffer块，同时需要将给定磁盘数据写入缓存中,
 	if buff == nil {
-		//当前区块没有被读取到，那么就需要去将当前区块从磁盘中读取上来,在这里如果缓存已经满了，就需要执行页面替换
-		buff = b.chooseUnpinBuffer() //查看是否还有可用的缓存页面，有的话， 就的可以得到当前的buffer块，同时需要将给定磁盘数据写入缓存中,
-		if buff == nil {
-			//没有找到可用的缓存页面
-			return nil
-		}
-		//分配完缓存页面之后，将blk指向区块的数据读取到缓存中进行管理,如果当前区块之前有缓存数据的话，就需要将该区块缓存的数据给刷新到磁盘中
-		//TODO 可以在读取缓存页的时候，进行提前的预读取
-
-		buff.Assign2Block(blk)               //先落盘
-		b.lruCache.Set(blk.HashCode(), buff) //将这个缓存页表加入到缓存中
-
-		//预先读取相邻的page
-
+		//没有找到可用的缓存页面
+		return nil
 	}
+	//分配完缓存页面之后，将blk指向区块的数据读取到缓存中进行管理,如果当前区块之前有缓存数据的话，就需要将该区块缓存的数据给刷新到磁盘中
+	//TODO 可以在读取缓存页的时候，进行提前的预读取
+
+	buff.Assign2Block(blk)               //先落盘
+	b.lruCache.Set(blk.HashCode(), buff) //将这个缓存页表加入到缓存中
+
+	//预先读取相邻的page
 	if buff.IsPinned() == false {
 		//如果当前的buffer=0,说明还没有人使用，同时申请成功了
 		b.numAvailable--
@@ -178,27 +179,14 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 	return buff
 }
 
-//findExistingBuffer 检查需要的blockid是否已经存在了
-func (b *BufferManager) findExistingBuffer(blk *fm.BlockId) *Buffer {
-	for _, buffer := range b.bufferPool {
-		block := buffer.Block() //获得当前block的信息
-		if block != nil && block.Equal(blk) {
-			//如果当前block不为空，同时这个block和要查找的block一致，说明这个block已经存在了，就不需要再创建新block
-			return buffer
-		}
-	}
-	//当前blk没有被找到
-	return nil
-}
-
 //chooseUnpinBuffer 在bufferpool中查找可用的buffer,引用计数=0的页面
 func (b *BufferManager) chooseUnpinBuffer() *Buffer {
 	//LRU置换算法
-	for _, buffer := range b.bufferPool {
-		if !buffer.IsPinned() {
-			//如果发现了某个还没有被使用的buffer，就可以被返回供使用
-			return buffer
-		}
+	if b.freelist.Len() != 0 {
+		elem := b.freelist.Front() //取出头节点
+		buffer := elem.Value.(*Buffer)
+		b.freelist.Remove(elem) //把这个给删除掉
+		return buffer
 	}
 	//说明全部的buffer都被使用了
 	return nil
@@ -220,6 +208,7 @@ func (b *BufferManager) asyncPreRead(blk *fm.BlockId) error {
 	}
 	if blk.Number() >= size || blk.Number() < 0 {
 		//当前的blk不合法，直接就可以返回
+		b.freelist.PushFront(buff)
 		return nil
 	}
 	//当前的blk合法
