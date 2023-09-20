@@ -4,27 +4,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	fm "miniSQL/file_manager"
 	lm "miniSQL/logManager"
+	"os"
 	"testing"
 	"time"
 )
 
 func TestBufferManager(t *testing.T) {
 	fileManager, err := fm.NewFileManager("/home/zevin/buffer_test", 400) //打开一个文件管理器来管理文件
+	defer func() {
+		os.RemoveAll("/home/zevin/buffer_test")
+	}()
 	assert.Nil(t, err)
 	logManager, err := lm.NewLogManager(fileManager, "logfile")
 	assert.Nil(t, err)
 	assert.NotNil(t, logManager)
 	bm := NewBufferManager(fileManager, logManager, 3) //缓存池中有3个缓存页面
+
 	buff1, err := bm.Pin(fm.NewBlockId("testfile", 1)) //我们首先先读取第一个区块的内容
+	fileManager.Append("testfile")
+	fileManager.Append("testfile")
+	fileManager.Append("testfile")
+	fileManager.Append("testfile")
 	assert.Nil(t, err)
 
 	p := buff1.Contents() //先把缓存读取出来
 	n := p.GetInt(80)     //读取当前页面的数据出来
 	p.SetInt(80, n+1)     //修改该页面的数据
 	buff1.SetModify(1, 0) //通知缓存管理器数据已经被修改了
+	bm.AddToDirty(buff1)
 	bm.Unpin(buff1)
 	//把buffer1的数据给unpin掉
-
+	//读取上来的数据有问题
 	buff2, err := bm.Pin(fm.NewBlockId("testfile", 2)) //我们再读取第2个区块的内容,因为上面把buff1给unpin掉，那么这个buff1的块就空出来了，就可以被使用了，当前buff2去获得buff块的时候，得到的就是这个buff1的区块，这个时候，就会把这个buff1的区块的数据给刷新到磁盘中
 	assert.Nil(t, err)
 
@@ -44,12 +54,14 @@ func TestBufferManager(t *testing.T) {
 	assert.Equal(t, int64(1), n1)
 	p2.SetInt(80, 9999)
 	buff4.SetModify(1, 0) //当前修改了，所以需要使用这个
-	bm.Unpin(buff4)       //这里面的数据不会写入到磁盘中的
+	bm.AddToDirty(buff4)
+	bm.Unpin(buff4) //这里面的数据不会写入到磁盘中的
 
 	//把testfile的区块1的数据写入到磁盘中，确认buff1的修改写入到磁盘
 	page := fm.NewPageBySize(400)
 	b1 := fm.NewBlockId("testfile", 1) //读取前面的buffer1的数据
 	fileManager.Read(b1, page)
+
 	n1 = page.GetInt(80)
 	assert.Equal(t, int64(9999), n1)
 	_, err = bm.Pin(fm.NewBlockId("testfile", 5)) //缓存页面已经使用完了，这里分配应该返回错误
@@ -60,6 +72,9 @@ func TestBufferManager(t *testing.T) {
 func TestBufferManager2(t *testing.T) {
 	fileManager, err := fm.NewFileManager("/home/zevin/buffer_test", 400) //打开一个文件管理器来管理文件
 	assert.Nil(t, err)
+	defer func() {
+		os.RemoveAll("/home/zevin/buffer_test")
+	}()
 	logManager, err := lm.NewLogManager(fileManager, "logfile")
 	assert.Nil(t, err)
 	assert.NotNil(t, logManager)
@@ -94,4 +109,33 @@ func TestBufferManager2(t *testing.T) {
 	bm.Pin(fm.NewBlockId("testfile", uint64(7)))
 	bm.Unpin(buff10)
 	bm.Pin(fm.NewBlockId("testfile", uint64(11)))
+}
+
+//测试预读功能
+func TestBufferManagerPreFetch(t *testing.T) {
+	fileManager, err := fm.NewFileManager("/home/zevin/buffer_test", 400) //打开一个文件管理器来管理文件
+	defer func() {
+		os.RemoveAll("/home/zevin/buffer_test")
+	}()
+	assert.Nil(t, err)
+	logManager, err := lm.NewLogManager(fileManager, "logfile")
+	assert.Nil(t, err)
+	assert.NotNil(t, logManager)
+	//如果缓冲区足够大，异步读取就不会出现问题
+	bm := NewBufferManager(fileManager, logManager, 10) //缓存池中有3个缓存页面
+	//提前开辟1.6K的空间
+	fileManager.Append("testfile")
+	fileManager.Append("testfile")
+	fileManager.Append("testfile")
+	fileManager.Append("testfile")
+	//先读取第一个区块的数据,会预先读取第二个区块的数据
+	buff0, err := bm.Pin(fm.NewBlockId("testfile", 0)) //我们首先先读取第一个区块的内容
+	assert.NotNil(t, buff0)
+	buff1, err := bm.Pin(fm.NewBlockId("testfile", 1)) //我们首先先读取第一个区块的内容
+	p1 := buff1.Contents()
+	p1.SetInt(20, 80)
+	buff2, err := bm.Pin(fm.NewBlockId("testfile", 2)) //我们首先先读取第一个区块的内容
+	p2 := buff2.Contents()
+	p2.SetInt(20, 80)
+
 }

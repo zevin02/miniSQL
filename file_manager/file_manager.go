@@ -112,6 +112,7 @@ func (f *FileManager) Write(blk *BlockId, p *Page) (int, error) {
 	}
 	defer file.Close() //读取完就将当前文件进行关闭
 	//在给定的位置进行写入,把缓冲区的数据写入到磁盘
+	//id=1,说明从400开始写入
 	count, err := file.WriteAt(p.Contents(), int64(blk.Number()*f.blockSize))
 	if err != nil {
 		return 0, err

@@ -19,6 +19,7 @@ import (
 	当前页面写入磁盘：情况一：当前页面读取其他区块的数据
 				   情况二：相应的写接口被调用
 			       情况3：当前事务调用commit接口，结束事务的时候，就会脏页刷新到磁盘中
+				   情况4：当前buff被添加到脏队列的时候，当前的buff在被unpin的时候，就会检查脏队列，判断是否可以刷盘
 
 	磁盘预读：磁盘的提前加载符合局部性原理，可以减少磁盘的IO，我们能把需要的页提前加入到缓冲池中，避免未来的磁盘IO操作
 	我们需要让预读失败的页，停留再LRU中的时间尽可能短，
@@ -43,7 +44,6 @@ type BufferManager struct {
 	lruCache     *container.LRUCache
 	freelist     *list.List         //管理空闲页
 	dirtylist    map[string]*Buffer //管理脏页
-	//再添加一个脏页管理器，定时会把脏页数据刷新到磁盘上
 }
 
 //NewBufferManager 开辟一个缓存管理器对象
@@ -125,6 +125,7 @@ func (b *BufferManager) Pin(blk *fm.BlockId) (*Buffer, error) {
 	//通过后台进行读取
 	if !b.lruCache.Contain(nextBlk.HashCode()) {
 		//检查前一个page是否存在，如果当前不存在，就需要进行异步的读取,同时把检查未被pin过的缓存页表
+		//异步的话，在读写的时候，可能会发生冲突
 		b.asyncPreRead(nextBlk)
 	}
 	return buff, nil
@@ -215,28 +216,29 @@ func (b *BufferManager) chooseUnpinBuffer() *Buffer {
 //asyncPreRead 异步的进行磁盘数据的预读取
 //先检查当前区块是否存在，再将数据读取上来，先不进行pin，添加到LRU中，等待LRU读取的时候，再占用，如果这个块一直没有被使用，因为没有被pin，所以后续别的块也可以使用
 //同时由于他一直没有被使用，一直在冷链表中，所以在缓存淘汰的时候，也会优先被淘汰
-func (b *BufferManager) asyncPreRead(blk *fm.BlockId) error {
+func (b *BufferManager) asyncPreRead(blk *fm.BlockId) {
 	//先查看是否能获得一个缓存块
 	buff := b.chooseUnpinBuffer()
 	if buff == nil {
-		return nil
+		return
 	}
 	//当前获得了一个缓存块
 	size, err := buff.fileManager.Size(blk.FileName()) //获得当前的size大小
 	if err != nil {
-		return err
+		return
 	}
 	if blk.Number() >= size || blk.Number() < 0 {
 		//当前的blk不合法，直接就可以返回
 		b.freelist.PushFront(buff)
-		return nil
+		return
 	}
 	//当前的blk合法
 	buff.Assign2Block(blk) //把这个缓存块之前的值先把他落盘
 
 	b.lruCache.Set(blk.HashCode(), buff) //添加到LRU缓存中
 	//不需要把这个blk集逆性pin，在lru缓存读取到这个blk的时候，才会进行pin
-	return nil
+	return
+
 }
 
 //AddToDirty 把当前的buff添加到脏页列表中
