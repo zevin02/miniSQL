@@ -6,7 +6,7 @@ import (
 	lm "miniSQL/logManager"
 )
 
-//RecoveryManager 该对象的产生一定伴随这一个事务的出现,同时也是由这个对象来产生事务中的日志信息
+//RecoveryManager 该对象的产生一定伴随这一个事务的出现,同时也是由这个对象来产生事务中的日志信息,这个可以实现事务redo log和undo log(顺序从底上上面就是undo 恢复)
 type RecoveryManager struct {
 	logManager    *lm.LogManager    //当前日志管理器中记录了事务中的各种日志
 	bufferManager *bm.BufferManager //这个buffer就是和当前事务的缓存管理器一样
@@ -39,7 +39,7 @@ func (r *RecoveryManager) Commit() error {
 	if err != nil {
 		return err
 	}
-	//将commit日志及之前的数据刷新到磁盘中（不仅包含这个事务的日志）
+	//将commit日志及之前的日志刷新到磁盘中（不仅包含这个事务的日志）
 	err = r.logManager.FlushByLSN(lsn)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func (r *RecoveryManager) SetString(buff *bm.Buffer, offset uint64, _ string) (u
 //传入数据的日志
 func (r *RecoveryManager) CreateRecord(bytes []byte) LogRecordInterface {
 	p := fm.NewPageByBytes(bytes) //放入缓冲区中
-	//根据当前的日志类型，创建不同的日志对象
+	//根据当前的日志类型，创建不同的日志对象,日志块的头8个字节，记录了这个日志的类型
 	switch RECORD_TYPE(p.GetInt(0)) {
 	case CHECKPOINT:
 		return NewCheckPointRecord()
@@ -127,9 +127,9 @@ func (r *RecoveryManager) doRollBack() {
 		logRecord := r.CreateRecord(rec) //根据这个日志数据，创建一个日志对象
 		//必须要保障是当前事务中写入的日志
 		if logRecord.TxNumber() == uint64(r.txNum) {
-			//如果不是当前事务的日志
+			//如果这个日志就是当前事务的日志
 			if logRecord.Op() == START {
-				//如果找到了Start ，说明当前的回滚结束了，就可以返回了
+				//如果找到了Start ，说明当前的回滚结束了，就可以返回了,结束了
 				return
 			}
 			//说明还在当前的事务中，执行回滚即可

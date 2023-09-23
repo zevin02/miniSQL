@@ -76,7 +76,7 @@ func (r *RecordPage) GetString(slot int, fieldName string) string {
 //SetString 给某个字段设置string类型数据
 func (r *RecordPage) SetString(slot int, fieldName string, val string) {
 	fieldPos := r.offset(slot) + uint64(r.layout.Offset(fieldName)) //获得某个recored中的某个field的实际的存储的偏移位置
-	r.tx.SetString(r.blk, fieldPos, val, true)
+	r.tx.SetString(r.blk, fieldPos, val, true)                      //生成日志信息
 }
 
 //Format 将所有页面内的记录设置为默认值,将记录设置成默认的值，int类型就设置成0,string类型就设置成“”

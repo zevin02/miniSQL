@@ -40,10 +40,10 @@ func NewTransaction(fileManager *fm.FileManager, logManager *lm.LogManager, buff
 		myBuffers:     NewBufferList(bufferManager), //构造一个bufferList对象，传入对应的缓存管理器即可
 		txNum:         nextTxNum(),
 	}
-	//创建同步管理器
+	//创建同步管理器，管理锁
 	tx.concurrentMgr = NewConcurrencyManager()
 
-	//创建恢复管理器
+	//创建恢复管理器，
 	//当前事务创建，就相当于一个事务启动了,START X
 	tx.recoverManager = NewRecoverManager(tx, tx.txNum, logManager, bufferManager)
 	return tx

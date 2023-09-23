@@ -13,15 +13,18 @@ import (
 //<SETSTRING, 2, testfile, 1, 40, one!>
 //我们在恢复的时候，从底部往上读取，这样先读到one！，写入，往上再读取到one,再继续写入同样位置，就可以覆盖掉之前的操作了，实现数据的恢复
 
+//由于我们实现的这个日志，记录的都是之前的数据，所以undo就是把这个日志的数据重新写入到之前日志块中
+
 type SetIntRecord struct {
 	txNum  uint64      //当前事务对应的事务序列号
 	offset uint64      //当前写入的偏移位置
 	val    int64       //当前写入的值
-	blk    *fm.BlockId //当前文件在哪个分区中1
+	blk    *fm.BlockId //当前文件在哪个分区中
 }
 
 //NewSetStringRecord 构造一个setstringrecord类型,初始化该日志对象
 //p中记录了二进制的日志信息
+
 func NewSetIntRecord(p *fm.Page) *SetIntRecord {
 	//头8字节对应日志的类型,接下来的8字节对应的就是事务号,
 	tpos := uint64(UIN64_LENGTH)                  //获得事务序列号是偏移位置

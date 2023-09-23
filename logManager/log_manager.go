@@ -33,7 +33,7 @@ const (
 type LogManager struct {
 	fileManager       *fm.FileManager //文件管理器,用来管理日志文件的读写
 	logFile           string          //日志文件的名称
-	logPage           *fm.Page        //存储日志的缓冲区,固定就只有一个缓冲块，不断的重复利用,(当前缓冲区的头8字节存储下一次开始写入的位置的末尾位置)
+	logPage           *fm.Page        //存储日志的缓冲区,固定就只有一个缓冲块，不断的重复利用,(当前缓冲区的头8字节存储下一次开始写入的位置的末尾位置)，根据固定的策略将这个页进行落盘
 	currentBlk        *fm.BlockId     //日志当前写入(正在处理)的区块号
 	lastestLsn        uint64          //当前最新日志的编号  log Sequence Number(还没有刷新的磁盘中)
 	lastSaved2DiskLsn uint64          //上一次(刷新)写入磁盘的日志编号
@@ -61,7 +61,7 @@ func NewLogManager(fileManager *fm.FileManager, logFile string) (*LogManager, er
 	logMgr := LogManager{
 		fileManager:       fileManager,
 		logFile:           logFile,
-		logPage:           fm.NewPageBySize(fileManager.BlockSize()), //开辟一个新的缓冲区
+		logPage:           fm.NewPageBySize(fileManager.BlockSize()), //开辟一个新的缓冲区,后面就循环利用这个缓冲区
 		lastSaved2DiskLsn: 0,                                         //当前还没有写入日志，所以就是0
 		lastestLsn:        0,                                         //最新添加的日志号也是0
 	}
@@ -75,7 +75,7 @@ func NewLogManager(fileManager *fm.FileManager, logFile string) (*LogManager, er
 		if err != nil {
 			return nil, err
 		}
-		logMgr.currentBlk = blk
+		logMgr.currentBlk = blk //更新当前正在操纵的区块
 	} else {
 		//文件已经存在，就需要先把末尾的日志内容先读取到内存中，如果当前对应的区块还有空间，新的日志就得继续写入当前的区块,当前size=400,所以我们就需要打开0号块，在有数据增加进来的话，才会新开辟一个数据块
 		logMgr.currentBlk = fm.NewBlockId(logMgr.logFile, logSize-1)
@@ -112,7 +112,7 @@ func (l *LogManager) Flush() error {
 	return nil
 }
 
-//Append 写入一条新的数据到缓冲区中(还没有刷新到磁盘中)，并返回当前最新的日志的编号
+//Append 写入一条新的日志数据到日志缓冲区中(还没有刷新到磁盘中)，并返回当前最新的日志的编号
 func (l *LogManager) Append(logRecord []byte) (uint64, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

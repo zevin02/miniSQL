@@ -63,7 +63,7 @@ func (it *LogIterator) Next() []byte {
 
 func (it *LogIterator) Valid() bool {
 	/*
-		如果当前区块数据全部读完，但是区块号不是0,说明还有其他数据可以读取
+		如果当前区块数据全部读完，但是区块号不是0,说明还有其他数据可以读取,因为日志的迭代是从最新的日志块开始往旧的日志块进行迭代
 	*/
 	return it.currentPos < it.fileManager.BlockSize() || it.blk.Number() > 0
 }

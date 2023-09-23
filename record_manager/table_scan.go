@@ -28,7 +28,7 @@ func NewTableScan(tx *tx.Transaction, tableName string, layout LayoutInterface) 
 		panic(err)
 	}
 	if size == 0 {
-		//当前文件为空,增加一个区块
+		//当前表的文件为空,为这个文件增加一个区块
 		err := tableScan.Move2NewBlock()
 		if err != nil {
 			return nil, err

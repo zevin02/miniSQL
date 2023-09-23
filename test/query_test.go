@@ -10,11 +10,15 @@ import (
 	"miniSQL/query"
 	rm "miniSQL/record_manager"
 	tx "miniSQL/transaction"
+	"os"
 	"testing"
 )
 
 func TestQuery(t *testing.T) {
 	fmgr, err := fm.NewFileManager("/home/zevin/query_test", 400)
+	defer func() {
+		os.RemoveAll("/home/zevin/query_test")
+	}()
 	lmgr, err := lm.NewLogManager(fmgr, "logfile")
 	assert.Nil(t, err)
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 10) //开辟一个缓存管理器，内存池,供使用

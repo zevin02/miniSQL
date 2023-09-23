@@ -25,7 +25,7 @@ import (
 	我们需要让预读失败的页，停留再LRU中的时间尽可能短，
 
 	我们不能遍历这一片连续的内存空间来找到空闲的缓存页，这个效率非常低，所以为了能够快速找到空闲的缓存页表，可以使用链表结构，将空闲的缓存页作为链表的节点（free链表）
-
+	TODO 在minisql实例启动的时候，开启4个后台线程，将脏页链表放成全局访问，当脏页数量达到缓冲区数量的1/10的时候，就会进行将脏页进行刷盘,延迟刷盘的时间
 
 */
 
@@ -43,7 +43,7 @@ type BufferManager struct {
 	mu           sync.RWMutex
 	lruCache     *container.LRUCache
 	freelist     *list.List         //管理空闲页
-	dirtylist    map[string]*Buffer //管理脏页
+	dirtylist    map[string]*Buffer //管理脏页,todo 后期放在全局
 }
 
 //NewBufferManager 开辟一个缓存管理器对象

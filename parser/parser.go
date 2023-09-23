@@ -141,33 +141,14 @@ func (p *SQLParser) Predicate() *query.Predicate {
 //Query ->select selectlist from tablelist (where predicate)解析出sql语句的各个信息
 func (p *SQLParser) Query() *QueryData {
 	//读取当前的关键字
-	tok, err := p.sqlLexer.Scan()
-	if err != nil {
-		return nil
-	}
-	if tok.Tag != lexer.SELECT {
-		panic("token is not select")
-	}
+	p.checkWordTag(lexer.SELECT)
 	//把字段筛选出来
 	fields := p.IDList()
-	tok, err = p.sqlLexer.Scan()
-	//读取到from关键字
-	if err != nil {
-		return nil
-	}
-	if tok.Tag != lexer.FROM {
-		panic("token is not from")
-	}
-
+	p.checkWordTag(lexer.FROM)
 	tables := p.IDList()
-	//查看是否有WHERE关键字
-	tok, err = p.sqlLexer.Scan()
-	//读取到from关键字
-	if err != nil && err != io.EOF {
-		return nil
-	}
 	pred := query.NewPredicate()
-	if tok.Tag == lexer.WHERE {
+	//检查是否有WHERE关键字
+	if p.isMatchTag(lexer.WHERE) {
 		pred = p.Predicate() //当前有where的关键词，就需要获得对应的predicate对象
 	} else {
 		p.sqlLexer.ReverseScan() //把当前读取到的关键字放回去
