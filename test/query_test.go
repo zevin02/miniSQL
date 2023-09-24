@@ -55,7 +55,7 @@ func TestQuery(t *testing.T) {
 	ts.SetInt("id", 890)
 	sql := "SELECT name,age FROM student WHERE id=890"
 	sqlParser := parser.NewSQLParser(sql) //构造sql解析器
-	queryData := sqlParser.Query()        //实现select解析，得到相应select需要的字段和条件和表名字
+	queryData, _ := sqlParser.Query()     //实现select解析，得到相应select需要的字段和条件和表名字
 	//根据querydata分别构造tablescan，selectscan，projectscan，并执行sql语句
 	//创建查询树最底层的数据表节点
 	//queryData中的表名可以帮助我们构造tableScan对象

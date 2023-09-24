@@ -59,61 +59,61 @@ const (
 	ERROR
 )
 
-var token_map = make(map[Tag]string) //把这些标号，就可以转化成相应的字符串
+var TokenMap = make(map[Tag]string) //把这些标号，就可以转化成相应的字符串
 
 //词法解析，就是把字符串进行一个归类的过程
 //这样就可以把每个关键字对应到他们相应的字符串上面，把所有的字符串进行归类，每个类别都由一个标号来标识，
 func init() {
 	//init函数会自动执行，如果有多个init函数，编译器会决定怎么执行
 	//初始化SQL关键字对应字符串,将上面定义的值，和相应的字符串进行比对
-	token_map[AND] = "AND"
-	token_map[SELECT] = "SELECT"
-	token_map[FROM] = "FROM"
-	token_map[WHERE] = "WHERE"
-	token_map[INSERT] = "INSERT"
-	token_map[INTO] = "INTO"
-	token_map[VALUES] = "VALUES"
-	token_map[DELETE] = "DELETE"
-	token_map[UPDATE] = "UPDATE"
-	token_map[SET] = "SET"
-	token_map[CREATE] = "CREATE"
-	token_map[TABLE] = "TABLE"
-	token_map[INT] = "INT"
-	token_map[VARCHAR] = "VARCHAR"
-	token_map[VIEW] = "VIEW"
-	token_map[AS] = "AS"
-	token_map[INDEX] = "INDEX"
-	token_map[ON] = "ON"
-	token_map[COMMA] = ","
-	token_map[BASIC] = "BASIC"
-	token_map[EQ] = "EQ"
-	token_map[FALSE] = "FALSE"
-	token_map[GE] = "GE"
-	token_map[ID] = "ID"
-	token_map[INT] = "int"
-	token_map[FLOAT] = "float"
+	TokenMap[AND] = "AND"
+	TokenMap[SELECT] = "SELECT"
+	TokenMap[FROM] = "FROM"
+	TokenMap[WHERE] = "WHERE"
+	TokenMap[INSERT] = "INSERT"
+	TokenMap[INTO] = "INTO"
+	TokenMap[VALUES] = "VALUES"
+	TokenMap[DELETE] = "DELETE"
+	TokenMap[UPDATE] = "UPDATE"
+	TokenMap[SET] = "SET"
+	TokenMap[CREATE] = "CREATE"
+	TokenMap[TABLE] = "TABLE"
+	TokenMap[INT] = "INT"
+	TokenMap[VARCHAR] = "VARCHAR"
+	TokenMap[VIEW] = "VIEW"
+	TokenMap[AS] = "AS"
+	TokenMap[INDEX] = "INDEX"
+	TokenMap[ON] = "ON"
+	TokenMap[COMMA] = ","
+	TokenMap[BASIC] = "BASIC"
+	TokenMap[EQ] = "EQ"
+	TokenMap[FALSE] = "FALSE"
+	TokenMap[GE] = "GE"
+	TokenMap[ID] = "ID"
+	TokenMap[INT] = "int"
+	TokenMap[FLOAT] = "float"
 
-	token_map[LE] = "<="
-	token_map[MINUS] = "-"
-	token_map[PLUS] = "+"
-	token_map[NE] = "!="
-	token_map[NUM] = "NUM"
-	token_map[OR] = "OR"
-	token_map[REAL] = "REAL"
-	token_map[TRUE] = "TRUE"
+	TokenMap[LE] = "<="
+	TokenMap[MINUS] = "-"
+	TokenMap[PLUS] = "+"
+	TokenMap[NE] = "!="
+	TokenMap[NUM] = "NUM"
+	TokenMap[OR] = "OR"
+	TokenMap[REAL] = "REAL"
+	TokenMap[TRUE] = "TRUE"
 	//操作符
-	token_map[AND_OPERATOR] = "&"
-	token_map[OR_OPERATOR] = "|"
-	token_map[ASSIGN_OPERATOR] = "="
-	token_map[NEGATE_OPERATOR] = "!"
-	token_map[LESS_OPERATOR] = "<"
-	token_map[GREATER_OPERATOR] = ">"
-	token_map[LEFT_BRACE] = "{"
-	token_map[RIGHT_BRACE] = "}"
-	token_map[LEFT_BRACKET] = "("
-	token_map[RIGHT_BRACKET] = ")"
-	token_map[EOF] = "EOF"
-	token_map[ERROR] = "ERROR"
+	TokenMap[AND_OPERATOR] = "&"
+	TokenMap[OR_OPERATOR] = "|"
+	TokenMap[ASSIGN_OPERATOR] = "="
+	TokenMap[NEGATE_OPERATOR] = "!"
+	TokenMap[LESS_OPERATOR] = "<"
+	TokenMap[GREATER_OPERATOR] = ">"
+	TokenMap[LEFT_BRACE] = "{"
+	TokenMap[RIGHT_BRACE] = "}"
+	TokenMap[LEFT_BRACKET] = "("
+	TokenMap[RIGHT_BRACKET] = ")"
+	TokenMap[EOF] = "EOF"
+	TokenMap[ERROR] = "ERROR"
 
 }
 
@@ -140,7 +140,7 @@ func NewTokenWithString(tag Tag, lexeme string) *Token {
 //ToString 把这个标号对应的标号按照字符串的形式打印回去
 func (t *Token) ToString() string {
 	if t.lexeme == "" { //如果当前的lexeme没有使用，就直接调用token_map中的数据
-		return token_map[t.Tag]
+		return TokenMap[t.Tag]
 	}
 	return t.lexeme
 }

@@ -40,3 +40,23 @@ projectScan := query.NewProductionScan(selectScan, queryData.Fields())
 ![](https://img1.imgtp.com/2023/09/19/NJ7fejcD.jpeg)
 
 ![](https://img1.imgtp.com/2023/09/19/ygFVTUHX.jpeg)
+
+
+# 预处理器
+1. 对解析完的语法树检查字段/表是否存在
+2. 将SELECT中的*，扩展为表上的所有列
+
+# 优化器
+经过预处理阶段后，需要为SQL查询语句制定一个执行计划
+优化器会在表中有多个索引的情况下，基于查询的成本，决定选择哪一个索引
+~~~sql
+select * from product where id = 1
+~~~
+这个查询很简单，使用的就是主键索引
+如果表中没有索引，就会全进行全表扫描
+
+~~~sql
+select id from product where id > 1  and name like 'i%';
+~~~
+因为这个SQL语句中包含两个索引，一个主键索引，一个普通索引，这个时候就需要优化器来决定这个时候，应该时候哪个索引（虽然有多个B+树，但是最后的叶子节点都是指向同一个地方）
+在普通索引中查找效率更高，所以就不需要使用主键索引,

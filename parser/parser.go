@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"miniSQL/comm"
 	"miniSQL/lexer"
@@ -119,41 +120,66 @@ func (p *SQLParser) Term() (*query.Term, error) {
 //predicate->term (and predicate),条件里面包含条件,递归的调用这个函数
 
 //Predicate 构造一个条件出来
-func (p *SQLParser) Predicate() *query.Predicate {
+func (p *SQLParser) Predicate() (*query.Predicate, error) {
 	term, err := p.Term()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	pred := query.NewPredicateWithTerms(term)
-	tok, err := p.sqlLexer.Scan() //往后一个op，判断是否是=，如果到最后了，就说明条件读取完了
-	if err != nil && tok.Tag != lexer.EOF {
-		panic(err)
+	//tok, err := p.sqlLexer.Scan() //往后一个op，判断是否是=，如果到最后了，就说明条件读取完了
+	//if err != nil && tok.Tag != lexer.EOF {
+	//	panic(err)
+	//}
+	ok, err := p.isMatchTag(lexer.AND)
+	if err != nil {
+		return nil, err
 	}
 	//如果当前的是条件是=，就需要递归的调用这个函数，并且把这个predicate进行扩充
-	if tok.Tag == lexer.AND {
-		pred.ConjoinWith(p.Predicate())
+	if ok {
+		qp, err := p.Predicate()
+		if err != nil {
+			if err == io.EOF {
+				return pred, nil
+			}
+			return nil, err
+		}
+		if qp != nil {
+			pred.ConjoinWith(qp)
+		}
 	} else {
 		p.sqlLexer.ReverseScan() //如果不是=的话，就需要把操作符放回去,之后还能继续读取
 	}
-	return pred
+	return pred, nil
 }
 
 //Query ->select selectlist from tablelist (where predicate)解析出sql语句的各个信息
-func (p *SQLParser) Query() *QueryData {
+func (p *SQLParser) Query() (*QueryData, error) {
 	//读取当前的关键字
-	p.checkWordTag(lexer.SELECT)
+	if err := p.checkWordTag(lexer.SELECT); err != nil {
+		return nil, err
+	}
 	//把字段筛选出来
 	fields := p.IDList()
-	p.checkWordTag(lexer.FROM)
+	if err := p.checkWordTag(lexer.FROM); err != nil {
+		return nil, err
+
+	}
 	tables := p.IDList()
 	pred := query.NewPredicate()
 	//检查是否有WHERE关键字
-	if p.isMatchTag(lexer.WHERE) {
-		pred = p.Predicate() //当前有where的关键词，就需要获得对应的predicate对象
+	ok, err := p.isMatchTag(lexer.WHERE)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		pred, err = p.Predicate() //当前有where的关键词，就需要获得对应的predicate对象
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		p.sqlLexer.ReverseScan() //把当前读取到的关键字放回去
 	}
-	return NewQueryData(fields, tables, pred)
+	return NewQueryData(fields, tables, pred), nil
 
 }
 
@@ -171,8 +197,8 @@ func (p *SQLParser) IDList() []string {
 		return l
 	}
 	if tok.Tag == lexer.COMMA {
-		tableList := p.IDList()
-		l = append(l, tableList...)
+		IDList := p.IDList()
+		l = append(l, IDList...)
 	} else {
 		p.sqlLexer.ReverseScan() //把读取到的字符回退，保证下次能够读取到
 	}
@@ -200,11 +226,11 @@ func (p *SQLParser) CostantList() []*comm.Constant {
 	return l
 }
 
-//UpdateCmd 对于表的修改的语句主要有:INSERT | DELETE | MODIFY | CREATE
-func (p *SQLParser) UpdateCmd() interface{} {
+//UpdateCmd 对于表的修改的语句主要有:INSERT | DELETE | MODIFY | CREATE,除了这几个之外的话，就是语法错误
+func (p *SQLParser) UpdateCmd() (interface{}, error) {
 	tok, err := p.sqlLexer.Scan()
 	if err != nil {
-		panic(err)
+		return nil, ErrSyntax
 	}
 	p.sqlLexer.ReverseScan() //读取完了之后，先退回去，让该token能够继续被读取
 
@@ -219,24 +245,18 @@ func (p *SQLParser) UpdateCmd() interface{} {
 		//p.sqlLexer.ReverseScan()
 		return p.Create()
 	}
-	return nil
+	return nil, ErrSyntax
 }
 
-func (p *SQLParser) Create() interface{} {
-	//继续读取，判断开头是否是CREATE语句
+func (p *SQLParser) Create() (interface{}, error) {
+	if err := p.checkWordTag(lexer.CREATE); err != nil {
+		return nil, err
+	}
 	tok, err := p.sqlLexer.Scan()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	if tok.Tag != lexer.CREATE {
-		//第一个token一定要以create开头，否则就是一个语法错误
-		panic("should be create")
-	}
-	tok, err = p.sqlLexer.Scan()
-	if err != nil {
-		panic(err)
-	}
-	//查看是create table，view,还是index
+	//先读取一个token查看是create table，view,还是index，这个就不需要再吐回去了,如果这几个create语句后面跟着的都不是，那么就是语法错误了
 	if tok.Tag == lexer.TABLE {
 		return p.CreateTable()
 	} else if tok.Tag == lexer.VIEW {
@@ -245,12 +265,12 @@ func (p *SQLParser) Create() interface{} {
 		return p.CreateIndex()
 		//return nil
 	}
-	return nil
+	return nil, ErrSyntax
 }
 
 //Insert insert into ID (name,age) values (10,"str"),(20,“name”)
 //insert into ID left_bracket fieldlist right_bracket values left_bracket valuelist right_bracket
-func (p *SQLParser) Insert() interface{} {
+func (p *SQLParser) Insert() (interface{}, error) {
 	p.checkWordTag(lexer.INSERT)
 	p.checkWordTag(lexer.INTO)
 	p.checkWordTag(lexer.ID)
@@ -264,68 +284,61 @@ func (p *SQLParser) Insert() interface{} {
 	values := p.CostantList()
 
 	p.checkWordTag(lexer.RIGHT_BRACKET)
-	return NewInsertData(tblName, fields, values)
+	return NewInsertData(tblName, fields, values), nil
 }
 
 //checkWordTag 检查tag是否是我们需要的tag,如果不是就panic
-func (p *SQLParser) checkWordTag(wordTag lexer.Tag) {
+func (p *SQLParser) checkWordTag(wordTag lexer.Tag) error {
 	tok, err := p.sqlLexer.Scan()
 	if err != nil {
-		panic(err)
+		return err
+		//panic(err) //发出一个error回去
 	}
 	//table后面一定要跟着一个表名,数字是不能作为一个表名
 	if tok.Tag != wordTag {
 		//第一个token一定要以create开头，否则就是一个语法错误
-		panic("should be ")
+		return errors.New(fmt.Sprintf("you have an error in your SQL syntax,should be %s", lexer.TokenMap[wordTag])) //返回一个错误是我们需要的
 	}
+	return nil
 }
 
-func (p *SQLParser) isMatchTag(wordTag lexer.Tag) bool {
+//isMatchTag 判断后面是否是wordtag，这个字段可以有也可以没有，true说明后面有这个字段，false说明
+func (p *SQLParser) isMatchTag(wordTag lexer.Tag) (bool, error) {
 	tok, err := p.sqlLexer.Scan()
-	if err != nil && err != io.EOF {
-		panic(err)
+	if err != nil && err != io.EOF { //如果当前的err是eof
+		return false, err
+	}
+	if err == io.EOF {
+		return false, nil
 	}
 	//table后面一定要跟着一个表名,数字是不能作为一个表名
 	if tok.Tag != wordTag {
 		//第一个token一定要以create开头，否则就是一个语法错误
-		return false
+		if err != io.EOF {
+			return false, ErrSyntax
+		}
 	}
-	return true
+	//eof说明也是没有这个字段的
+	return true, nil
 }
 
 //CreateTable create table tblname (f1 int, f2 varchar(255))
-func (p *SQLParser) CreateTable() interface{} {
-	//table后面跟着的一定是一个表的名字，表的ID
-	tok, err := p.sqlLexer.Scan()
-	if err != nil {
-		panic(err)
-	}
-	//table后面一定要跟着一个表名,数字是不能作为一个表名
-	if tok.Tag != lexer.ID {
-		//第一个token一定要以create开头，否则就是一个语法错误
-		panic("should be id")
+func (p *SQLParser) CreateTable() (interface{}, error) {
+	if err := p.checkWordTag(lexer.ID); err != nil {
+		return nil, err
 	}
 	tblName := p.sqlLexer.Lexeme //获得当前的表名
-	//继续往后扫描，得到的一定需要是左括号，左括号后面跟着的就是类型的定义
-	tok, err = p.sqlLexer.Scan()
-	if err != nil {
-		panic(err)
-	}
-	if tok.Tag != lexer.LEFT_BRACKET {
-		panic("miss left bracket")
+	if err := p.checkWordTag(lexer.LEFT_BRACKET); err != nil {
+		return nil, err
 	}
 	//左括号后面跟着的就是类型的定义
 	sch := p.FieldDefs() //读取当前表的结构
 	//表结构读取完之后，跟着的就是一个右括号，表示类型定义结束
-	tok, err = p.sqlLexer.Scan()
-	if err != nil {
-		panic(err)
-	}
-	if tok.Tag != lexer.RIGHT_BRACKET {
-		panic("miss right bracket")
+	if err := p.checkWordTag(lexer.RIGHT_BRACKET); err != nil {
+		return nil, err
 	}
 	//存储当前的表名和表结构
-	return NewCreateTableData(tblName, sch)
+	return NewCreateTableData(tblName, sch), nil
 }
 
 //FieldDefs 读取sql语句获得表的schema结构，递归的调用该函数进行读取
@@ -402,19 +415,23 @@ func (p *SQLParser) fieldType(fieldName string) *rm.Schema {
 }
 
 //CreateView 创建一个视图,CREATE VIEW VIEW_NAME AS QUERY
-func (p *SQLParser) CreateView() interface{} {
-	p.checkWordTag(lexer.ID)
+func (p *SQLParser) CreateView() (interface{}, error) {
+	if err := p.checkWordTag(lexer.ID); err != nil {
+		return nil, err
+	}
 	viewName := p.sqlLexer.Lexeme
-	p.checkWordTag(lexer.AS)
-	qd := p.Query() //获得query的对象
-	return NewViewData(viewName, qd)
+	if err := p.checkWordTag(lexer.AS); err != nil {
+		return nil, err
+	}
+	qd, err := p.Query() //前面的都解析完了，后面就是解析获得query的对象
+	return NewViewData(viewName, qd), err
 }
 
 //CreateIndex  create index_name ON table_name (column1, column2, ...);
 //index_name是要创建索引的关键字， tablename是要在哪张表中创建，后面就是包含索引的列
 //查询的时候，：SELECT * FROM employees WHERE last_name = 'Smith';使用这个索引来查询
 
-func (p *SQLParser) CreateIndex() interface{} {
+func (p *SQLParser) CreateIndex() (interface{}, error) {
 	p.checkWordTag(lexer.ID)
 	indexName := p.sqlLexer.Lexeme
 	p.checkWordTag(lexer.ON)
@@ -425,25 +442,38 @@ func (p *SQLParser) CreateIndex() interface{} {
 	fields := p.IDList()
 	p.checkWordTag(lexer.RIGHT_BRACKET) //左括号
 	idxData := NewIndexData(indexName, tableName, fields)
-	return idxData
+	return idxData, nil
 }
 
 //Delete DELETE FROM students WHERE predicate
-func (p *SQLParser) Delete() interface{} {
-	p.checkWordTag(lexer.DELETE)
-	p.checkWordTag(lexer.FROM)
-	p.checkWordTag(lexer.ID)
+func (p *SQLParser) Delete() (interface{}, error) {
+	if err := p.checkWordTag(lexer.DELETE); err != nil {
+		return nil, err
+	}
+
+	if err := p.checkWordTag(lexer.FROM); err != nil {
+		return nil, err
+	}
+	if err := p.checkWordTag(lexer.ID); err != nil {
+		return nil, err
+	}
 	tableName := p.sqlLexer.Lexeme
 	pred := query.NewPredicate()
 	//如果当前匹配是WHERE的话，就需要获得相应的SQL语句
-	if p.isMatchTag(lexer.WHERE) {
-		pred = p.Predicate()
+	ok, err := p.isMatchTag(lexer.WHERE)
+	if err != nil {
+		return nil, err
 	}
-
-	return NewDeleteData(tableName, pred)
+	if ok {
+		pred, err = p.Predicate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return NewDeleteData(tableName, pred), nil
 }
 
-func (p *SQLParser) Update() interface{} {
+func (p *SQLParser) Update() (interface{}, error) {
 	p.checkWordTag(lexer.UPDATE)
 	p.checkWordTag(lexer.ID)
 	tableName := p.sqlLexer.Lexeme
@@ -454,8 +484,15 @@ func (p *SQLParser) Update() interface{} {
 
 	pred := query.NewPredicate()
 	//如果当前匹配是WHERE的话，就需要获得相应的SQL语句
-	if p.isMatchTag(lexer.WHERE) {
-		pred = p.Predicate()
+	ok, err := p.isMatchTag(lexer.WHERE)
+	if err != nil {
+		return nil, err
 	}
-	return NewUpdateData(tableName, fldName, newVal, pred)
+	if ok {
+		pred, err = p.Predicate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return NewUpdateData(tableName, fldName, newVal, pred), nil
 }

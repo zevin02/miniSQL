@@ -366,8 +366,11 @@ func (l *Lexer) Scan() (*Token, error) {
 			}
 		}
 		s := string(buffer)
-		token, ok := l.keyWords[s] //检查一下单前的字符串是不是一个关键字,如果是的话
+
+		token, ok := l.keyWords[strings.ToUpper(s)] //检查一下单前的字符串是不是一个关键字,如果是的话,把这个转化成大写的，用户使用大写或者小写的sql语句都可以使用
 		if ok {
+			//当前是一个关键字类型
+			l.Lexeme = strings.ToUpper(l.Lexeme)            //将当前的这个字符串转化成大写的
 			l.LexemeStack = append(l.LexemeStack, l.Lexeme) //将当前的字符串保存起来
 			l.tokenStack = append(l.tokenStack, token)      //将当前的字符串的token保存起来
 			//当前是一个关键字,直接返回这个关键字对应的token即可

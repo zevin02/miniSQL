@@ -2,7 +2,7 @@ package parser
 
 import "miniSQL/query"
 
-//QueryData 保存select解析出来的结果
+//QueryData 保存query查询解析出来的结果,在预处理器在中会对这里面的字段和表进行检查是否存在
 type QueryData struct {
 	fields []string
 	tables []string
