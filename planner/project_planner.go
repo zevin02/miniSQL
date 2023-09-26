@@ -42,6 +42,7 @@ func (p *ProjectPlan) RecordsOuput() int {
 	return p.p.RecordsOuput()
 }
 
+//DistinctValues project的distinct取决于底层调用对象的值
 func (p *ProjectPlan) DistinctValues(fldName string) int {
 	return p.p.DistinctValues(fldName)
 }

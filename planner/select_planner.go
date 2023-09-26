@@ -44,7 +44,7 @@ func (s *SelectPlan) RecordsOuput() int {
 	return s.p.RecordsOuput() / s.pred.ReductionFactor(s.p)
 }
 
-//DistinctValues V(s,F)
+//DistinctValues V(s,F) select的distinct的值需要根据底层的值进行计算
 func (s *SelectPlan) DistinctValues(fldName string) int {
 	//where A=B 第一种情况，A，B都是字段，第二种情况:A是字段，B是常量
 	if s.pred.EquatesWithConstant(fldName) != nil {
