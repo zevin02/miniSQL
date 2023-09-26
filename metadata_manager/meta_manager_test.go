@@ -39,7 +39,9 @@ func TestMetaDataManager(t *testing.T) {
 		}
 		fmt.Printf("%s : %s\n", fldName, fldType)
 	}
-	ts, err := rm.NewTableScan(tx, "mytable", layout) //获得这张表的结构，并进行CRUD操作
+	//
+	ts, err := rm.NewTableScan(tx, "mytable", layout) //获得这张表的结构，并进行CRUD
+
 	assert.Nil(t, err)
 	for i := 0; i < 50; i++ {
 		ts.Insert()
