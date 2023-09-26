@@ -41,14 +41,14 @@ func (s *SelectPlan) BlockAccessed() int {
 R(s)=R(st)/V(st,f)
 */
 func (s *SelectPlan) RecordsOuput() int {
-	return s.p.RecordsOuput() / s.pred.ReductionFactor(s.p)
+	return s.p.RecordsOuput() / CalculateReductionFactor(s.pred, s.p)
 }
 
 //DistinctValues V(s,F) select的distinct的值需要根据底层的值进行计算
 func (s *SelectPlan) DistinctValues(fldName string) int {
 	//where A=B 第一种情况，A，B都是字段，第二种情况:A是字段，B是常量
 	if s.pred.EquatesWithConstant(fldName) != nil {
-		//这个说明是第二种情况，
+		//这个说明是第二种情况，一个是字段，一个是常量,那么查询的结果返回一条数据
 		return 1
 	} else {
 		fldName2 := s.pred.EquatesWithField(fldName)
@@ -56,6 +56,8 @@ func (s *SelectPlan) DistinctValues(fldName string) int {
 		if fldName2 != "" {
 			//当前B这个字段是合法的,返回当前的最小值,比如A这个字段有10个值，B这个字段有4个值，那么就只能有4个值
 			return s.min(s.p.DistinctValues(fldName), s.p.DistinctValues(fldName2))
+		} else {
+			return s.p.DistinctValues(fldName)
 		}
 	}
 	return 0

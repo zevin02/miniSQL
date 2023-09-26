@@ -1,9 +1,7 @@
 package query
 
 import (
-	"math"
 	"miniSQL/comm"
-	"miniSQL/planner"
 	rm "miniSQL/record_manager"
 )
 
@@ -64,36 +62,10 @@ func (t *Term) EquatesWithConstant(fieldName string) *comm.Constant {
 	}
 }
 
-func (t *Term) ReductionFactor(plan planner.Plan) int {
-	lhsName := ""
-	rhsName := ""
-	if t.lhs.IsFieldName() && t.rhs.IsFieldName() {
-		//如果当前的term的=两边都是字段
-		//获得当前的两个字段
-		lhsName = t.lhs.AsFieldName()
-		rhsName = t.rhs.AsFieldName()
-		//返回字段最多的值
-		if plan.DistinctValues(lhsName) > plan.DistinctValues(rhsName) {
-			return plan.DistinctValues(lhsName)
-		}
-		return plan.DistinctValues(rhsName)
-	}
-	//其中一个不是字段
-	if t.lhs.IsFieldName() {
-		//左边是字段，那么就返回左边的位置值
-		lhsName = t.lhs.AsFieldName()
-		return plan.DistinctValues(lhsName)
-	}
-	if t.rhs.IsFieldName() {
-		//左边是字段，那么就返回左边的位置值
-		rhsName = t.rhs.AsFieldName()
-		return plan.DistinctValues(rhsName)
-	}
-	if t.lhs.AsConstant().Equal(t.rhs.AsConstant()) {
-		//两个相等的常量
-		return 1
-	} else {
-		return math.MaxInt
-	}
+func (t *Term) Lhs() *Expression {
+	return t.lhs
+}
 
+func (t *Term) Rhs() *Expression {
+	return t.rhs
 }

@@ -2,7 +2,6 @@ package query
 
 import (
 	"miniSQL/comm"
-	"miniSQL/planner"
 	rm "miniSQL/record_manager"
 )
 
@@ -137,12 +136,6 @@ func (p *Predicate) ToString() string {
 	return result
 }
 
-func (p *Predicate) ReductionFactor(plan planner.Plan) int {
-	factor := 1
-	for _, t := range p.terms {
-		//在当前的表达式种一个一个的遍历
-		factor *= t.ReductionFactor(plan)
-	}
-	return factor
-
+func (p *Predicate) Terms() []*Term {
+	return p.terms
 }

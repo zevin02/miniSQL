@@ -7,6 +7,7 @@ import (
 )
 
 //TablePlan 这个每个对应的planner就是用来测算对应的Planner
+//tablePlan是查询树最底层的，他直接返回对应数据库表的统计信息
 type TablePlan struct {
 	tx      *tx.Transaction
 	tblName string       //表名
