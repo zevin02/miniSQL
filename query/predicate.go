@@ -37,11 +37,18 @@ func NewPredicate() *Predicate {
 	return &Predicate{}
 }
 
-//NewPredicateWithTerms 使用一个表达式来进行初始化该条件表达式
-func NewPredicateWithTerms(term *Term) *Predicate {
+//NewPredicateWithTerm 使用一个表达式来进行初始化该条件表达式
+func NewPredicateWithTerm(term *Term) *Predicate {
 	predicate := &Predicate{}
 	predicate.terms = make([]*Term, 0)
 	predicate.terms = append(predicate.terms, term) //往predicate中添加一个表达式
+	return predicate
+}
+
+//NewPredicateWithMultiTerms  use multiple terms to init
+func NewPredicateWithMultiTerms(term []*Term) *Predicate {
+	predicate := &Predicate{}
+	predicate.terms = append(predicate.terms, term...) //往predicate中添加一个表达式
 	return predicate
 }
 

@@ -16,14 +16,14 @@ func TestPredicate(t *testing.T) {
 	// 创建一个 Term 对象
 	term1 := NewTerm(expression1, expression2)
 
-	p1 := NewPredicateWithTerms(term1)
+	p1 := NewPredicateWithTerm(term1)
 	fieldName3 := "StuId"
 	c1 := 2
 	const1 := comm.NewConstantInt(&c1)
 	expression3 := NewExpressionWithFieldName(fieldName3)
 	expression4 := NewExpressionWithConstant(const1)
 	term2 := NewTerm(expression3, expression4)
-	p2 := NewPredicateWithTerms(term2)
+	p2 := NewPredicateWithTerm(term2)
 	p1.ConjoinWith(p2) //将两个表达式结合起来
 	assert.Equal(t, "MajorId=DId and StuId=2", p1.ToString())
 	assert.Equal(t, "MajorId", p1.EquatesWithField("DId"))

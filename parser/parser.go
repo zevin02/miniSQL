@@ -125,7 +125,7 @@ func (p *SQLParser) Predicate() (*query.Predicate, error) {
 	if err != nil {
 		return nil, err
 	}
-	pred := query.NewPredicateWithTerms(term)
+	pred := query.NewPredicateWithTerm(term)
 	//tok, err := p.sqlLexer.Scan() //往后一个op，判断是否是=，如果到最后了，就说明条件读取完了
 	//if err != nil && tok.Tag != lexer.EOF {
 	//	panic(err)

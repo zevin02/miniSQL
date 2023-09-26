@@ -45,6 +45,7 @@ func (s *StatInfo) RecordsOutput() int {
 }
 
 //DistinctValue 返回当前表中的某个字段有多少个不同的值
+//todo 进一步优化，使用哈希表或者临时表来进行实现
 func (s *StatInfo) DistinctValue(fldName string) int {
 	return 1 + (s.numRecs / 3)
 }
@@ -89,7 +90,7 @@ func (s *StatManager) refreshStatistics(tx *tx.Transaction) error {
 	return nil
 }
 
-//calcTableStats 遍历当前的表，统计得到当前表的统计信息
+//calcTableStats 遍历当前的表，统计得到当前表的统计信息,TODO 后期更新成某一个时刻的快照扫描
 func (s *StatManager) calcTableStats(tblname string, layout *rm.Layout, tx *tx.Transaction) (*StatInfo, error) {
 	numRecord := 0
 	numBlock := 0
@@ -108,7 +109,7 @@ func (s *StatManager) calcTableStats(tblname string, layout *rm.Layout, tx *tx.T
 }
 
 //GetStatInfo 获得某张表的统计数据，如果没有存在的话，就需要创建
-func (s StatManager) GetStatInfo(tblname string, layout *rm.Layout, tx *tx.Transaction) (*StatInfo, error) {
+func (s *StatManager) GetStatInfo(tblname string, layout *rm.Layout, tx *tx.Transaction) (*StatInfo, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.numCalls += 1

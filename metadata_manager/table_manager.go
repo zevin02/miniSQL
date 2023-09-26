@@ -86,12 +86,12 @@ func (t *TableManager) CreateTable(tblName string, schema *rm.Schema, tx *tx.Tra
 //GetLayout 获得给定表的Layout结构
 func (t *TableManager) GetLayout(tblName string, tx *tx.Transaction) (*rm.Layout, error) {
 	size := -1
-	//从表中把信息读取出来，再新生成layout结构出来
+	//从tblcat获得表中一条记录的长度
 	tcat, err := rm.NewTableScan(tx, "tblcat", t.tcatLayout) //获得表对应的记录描述
 	if err != nil {
 		return nil, err
 	}
-	//遍历这个tblcat表，找到报行这个名称的记录
+	//遍历这个tblcat表，找到报行这个名称的记录,再通过这个表获得这张表一条记录的大小 TODO 之后可以使用索引加速查询
 	for tcat.Next() {
 		if tcat.GetString("tblname") == tblName {
 			//如果表名就是我们需要的
@@ -100,7 +100,7 @@ func (t *TableManager) GetLayout(tblName string, tx *tx.Transaction) (*rm.Layout
 		}
 	}
 	tcat.Close()
-	//访问第二张表
+	//从fldcat获得这张表的结构
 	sch := rm.NewSchema()                                    //这个管理这个表信息
 	offsets := make(map[string]int)                          //记录每个字段在表中的偏移
 	fcat, err := rm.NewTableScan(tx, "fldcat", t.fcatLayout) //从这个表中获得这个表的信息
@@ -108,7 +108,7 @@ func (t *TableManager) GetLayout(tblName string, tx *tx.Transaction) (*rm.Layout
 		return nil, err
 	}
 	for fcat.Next() {
-		//TODO 这样遍历fldname全局遍历，效率非常低，可以进行优化
+		//TODO 这样遍历fldname全局遍历，效率非常低，可以进行优化,B+ index
 		if fcat.GetString("tblname") == tblName {
 			//这样就得到了这个表的所有信息
 			fldName := fcat.GetString("fldname")
@@ -117,10 +117,11 @@ func (t *TableManager) GetLayout(tblName string, tx *tx.Transaction) (*rm.Layout
 			offset := fcat.GetInt("offset")
 			//写入到map中去
 			offsets[fldName] = offset
-			sch.AddField(fldName, rm.FIELD_TYPE(ftype), length) //完成当前表的schema的创建
+			sch.AddField(fldName, rm.FIELD_TYPE(ftype), length) //将字段添加到schema中
 		}
 	}
 	fcat.Close()
-	return rm.NewLayout(sch, offsets, size), nil //返回字段的相关星系
+	//使用tblcat获得的record的size，和fldcat种得到的record的schema构造layout对象
+	return rm.NewLayout(sch, offsets, size), nil
 
 }

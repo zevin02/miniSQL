@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"math"
 	"miniSQL/query"
 	rm "miniSQL/record_manager"
 )
@@ -40,8 +41,8 @@ func (s *SelectPlan) BlockAccessed() int {
 	where age=19 ->会返回3种
 R(s)=R(st)/V(st,f)
 */
-func (s *SelectPlan) RecordsOuput() int {
-	return s.p.RecordsOuput() / CalculateReductionFactor(s.pred, s.p)
+func (s *SelectPlan) RecordsOutput() int {
+	return s.p.RecordsOutput() / CalculateReductionFactor(s.pred, s.p)
 }
 
 //DistinctValues V(s,F) select的distinct的值需要根据底层的值进行计算
@@ -55,7 +56,7 @@ func (s *SelectPlan) DistinctValues(fldName string) int {
 		//判断是否是第一种情况
 		if fldName2 != "" {
 			//当前B这个字段是合法的,返回当前的最小值,比如A这个字段有10个值，B这个字段有4个值，那么就只能有4个值
-			return s.min(s.p.DistinctValues(fldName), s.p.DistinctValues(fldName2))
+			return int(math.Min(float64(s.p.DistinctValues(fldName)), float64(s.p.DistinctValues(fldName2))))
 		} else {
 			return s.p.DistinctValues(fldName)
 		}
@@ -65,12 +66,4 @@ func (s *SelectPlan) DistinctValues(fldName string) int {
 
 func (s *SelectPlan) Schema() rm.SchemaInterface {
 	return s.p.Schema()
-}
-
-func (s *SelectPlan) min(a int, b int) int {
-	if a <= b {
-		return a
-	} else {
-		return b
-	}
 }

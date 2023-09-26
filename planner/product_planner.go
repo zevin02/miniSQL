@@ -41,7 +41,7 @@ func (p *ProductPlan) Open() (interface{}, error) {
 
 func (p *ProductPlan) BlockAccessed() int {
 	//如果以p1为主，就是p1的访问不变，p2根据p1的记录每次扫描一次表
-	return p.p1.BlockAccessed() + (p.p1.RecordsOuput() * p.p2.BlockAccessed())
+	return p.p1.BlockAccessed() + (p.p1.RecordsOutput() * p.p2.BlockAccessed())
 }
 
 func (p *ProductPlan) DistinctValues(fldName string) int {
@@ -54,8 +54,8 @@ func (p *ProductPlan) DistinctValues(fldName string) int {
 	}
 }
 
-func (p *ProductPlan) RecordsOuput() int {
-	return p.p1.RecordsOuput() * p.p2.RecordsOuput()
+func (p *ProductPlan) RecordsOutput() int {
+	return p.p1.RecordsOutput() * p.p2.RecordsOutput()
 }
 
 func (p *ProductPlan) Schema() rm.SchemaInterface {

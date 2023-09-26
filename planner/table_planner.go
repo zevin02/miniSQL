@@ -22,7 +22,7 @@ func NewTablePlan(tx *tx.Transaction, tblName string, md *mm.MetaDataManager) (*
 		tx:      tx,
 		tblName: tblName,
 	}
-	//从元数据管理器中获得表结构
+	//从元数据管理器中获得表结构layout信息
 	if tblPlanner.layout, err = md.GetLayout(tblName, tx); err != nil {
 		return nil, nil
 	}
@@ -42,7 +42,7 @@ func (t *TablePlan) Open() (interface{}, error) {
 	return tbleScan, nil
 }
 
-func (t *TablePlan) RecordsOuput() int {
+func (t *TablePlan) RecordsOutput() int {
 	return t.si.RecordsOutput() //在当前的元数据管理器中查询该表的记录数
 }
 
@@ -50,7 +50,7 @@ func (t *TablePlan) BlockAccessed() int {
 	return t.si.BLockAccessed() //查询当前访问的区块格式
 }
 
-//DistinctValues V(s,F)
+//DistinctValues V(s,F),调用底部的元数据管理器，获得每个字段有多少个唯一的值
 func (t *TablePlan) DistinctValues(fldName string) int {
 	return t.si.DistinctValue(fldName)
 }

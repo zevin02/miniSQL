@@ -37,14 +37,21 @@ func (p *ProjectPlan) BlockAccessed() int {
 	return p.p.BlockAccessed()
 }
 
-//RecordsOuput 当前的project访问的record和子scan是一样的
-func (p *ProjectPlan) RecordsOuput() int {
-	return p.p.RecordsOuput()
+//RecordsOutput 当前的project访问的record和子scan是一样的
+func (p *ProjectPlan) RecordsOutput() int {
+	return p.p.RecordsOutput()
 }
 
 //DistinctValues project的distinct取决于底层调用对象的值
 func (p *ProjectPlan) DistinctValues(fldName string) int {
-	return p.p.DistinctValues(fldName)
+	if p.schema.HashField(fldName) {
+		//当前project中有这个字段,才能进行查找
+		return p.p.DistinctValues(fldName)
+	} else {
+		//如果当前字段不存在，就不需要找了
+		return 0
+	}
+
 }
 
 func (p *ProjectPlan) Schema() rm.SchemaInterface {

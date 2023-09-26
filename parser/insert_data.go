@@ -1,6 +1,8 @@
 package parser
 
-import "miniSQL/comm"
+import (
+	"miniSQL/comm"
+)
 
 //InsertData 这个解析出来就是相当于抽象语法树
 type InsertData struct {
