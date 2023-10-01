@@ -1,7 +1,6 @@
 package record_manager
 
 import (
-	"fmt"
 	"miniSQL/comm"
 	fm "miniSQL/file_manager"
 	tx "miniSQL/transaction"
@@ -62,8 +61,6 @@ func (t *TableScan) Next() bool {
 		//循环遍历，知道找到相应的块，或者遍历结束，否则就继续遍历
 		if t.AtLastBlock() {
 			//说明当前区块已经被遍历完成了
-
-			fmt.Println("end of next")
 			//已经遍历到最后一个区块了
 			return false
 		}

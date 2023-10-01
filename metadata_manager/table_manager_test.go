@@ -8,11 +8,14 @@ import (
 	lm "miniSQL/logManager"
 	rm "miniSQL/record_manager"
 	tx "miniSQL/transaction"
+	"os"
 	"testing"
 )
 
 func TestNewTableManager(t *testing.T) {
 	fmgr, _ := fm.NewFileManager("/home/zevin/table_test", 400)
+	defer os.RemoveAll("/home/zevin/table_test")
+
 	lmgr, _ := lm.NewLogManager(fmgr, "logfile")
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 3)
 	tx := tx.NewTransaction(fmgr, lmgr, bmgr)

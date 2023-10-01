@@ -60,3 +60,57 @@ select id from product where id > 1  and name like 'i%';
 ~~~
 因为这个SQL语句中包含两个索引，一个主键索引，一个普通索引，这个时候就需要优化器来决定这个时候，应该时候哪个索引（虽然有多个B+树，但是最后的叶子节点都是指向同一个地方）
 在普通索引中查找效率更高，所以就不需要使用主键索引,
+
+# 准备阶段
+1. 将外连接转化成内连接
+    > 将外连接转化成内连接可以提高查询的效率，内连接返回的是相应的行在两个表中同时满足，而外连接返回的符合条件在俩表中的所有行
+    
+    例如：
+    ~~~sql
+    SELECT o.order_id, c.name
+    FROM orders o
+    LEFT JOIN customers c ON o.customer_id = c.customer_id;
+    ~~~
+    >这个外连接会将所有的符合条件的行都返回，即使name=nil，没有相应的顾客记录也被返回了
+    
+    然而
+    ~~~sql
+    SELECT o.order_id, c.name
+    FROM orders o
+    INNER JOIN customers c ON o.customer_id = c.customer_id;
+    ~~~
+    >这个sql会只返回匹配的record，nil不会被返回
+    
+2. 将**EXIST** 转化成**IN** ，再将IN转化成**SEMIJOIN**
+   在子查询中，exists用来判断一个子查询是否返回有数据，IN判断数据是否存在在一系列值之间
+exists只能使用子查询，必须先执行子查询，再执行其他操作
+~~~SQL
+SELECT order_id
+FROM orders
+WHERE EXISTS (
+SELECT 1
+FROM customers
+WHERE orders.customer_id = customers.customer_id
+AND customers.name LIKE 'John%'
+);
+~~~
+使用IN，in可以通过join操作在外查询和子查询之间使用索引,缓存和其他技术来优化
+~~~SQL
+SELECT orderid from order where customerid in 
+(select customerid from customer where order.customerid=customer.customerid
+and customer.name like 'john%'
+~~~
+
+使用SEMIJOIN
+~~~sql
+SELECT o.order_id
+FROM orders o
+INNER JOIN (
+   SELECT DISTINCT order_id
+   FROM order_items
+   WHERE item_id = 100
+) i ON o.order_id = i.order_id;
+~~~
+# 逻辑变化
+1. 否定消除：将多个表达式中的not，用得摩根去掉
+2. 

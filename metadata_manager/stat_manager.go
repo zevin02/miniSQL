@@ -1,6 +1,7 @@
 package metadata_manager
 
 import (
+	"github.com/axiomhq/hyperloglog"
 	rm "miniSQL/record_manager"
 	tx "miniSQL/transaction"
 	"sync"
@@ -23,14 +24,16 @@ const (
 
 //StatInfo 一张表的状态信息
 type StatInfo struct {
-	numBlock int //数据库表的区块数量
-	numRecs  int //数据库表中包含的记录数
+	numBlock int                            //数据库表的区块数量
+	numRecs  int                            //数据库表中包含的记录数
+	fldData  map[string]*hyperloglog.Sketch //一张表的某个字段的有多少个不同的值
 }
 
-func NewStatInfo(numBlock int, numRecs int) *StatInfo {
+func NewStatInfo(numBlock int, numRecs int, fldData map[string]*hyperloglog.Sketch) *StatInfo {
 	return &StatInfo{
 		numRecs:  numRecs,
 		numBlock: numBlock,
+		fldData:  fldData,
 	}
 }
 
@@ -45,9 +48,9 @@ func (s *StatInfo) RecordsOutput() int {
 }
 
 //DistinctValue 返回当前表中的某个字段有多少个不同的值
-//todo 进一步优化，使用哈希表或者临时表来进行实现
 func (s *StatInfo) DistinctValue(fldName string) int {
-	return 1 + (s.numRecs / 3)
+	//return 1 + (s.numRecs / 3)
+	return int(s.fldData[fldName].Estimate()) //从hyperloglog中返回当前数据的基数
 }
 
 //StatManager 状态管理器，管理当前数据库的状态,他只在系统启动的时候创建，在创建的时候，会调用refreshStatistics来创建统计数据并存储在内存中
@@ -90,7 +93,7 @@ func (s *StatManager) refreshStatistics(tx *tx.Transaction) error {
 	return nil
 }
 
-//calcTableStats 遍历当前的表，统计得到当前表的统计信息,TODO 后期更新成某一个时刻的快照扫描
+//calcTableStats 遍历当前的表，统计得到当前表的统计信息,使用HyperLogLog来统计数据的基数
 func (s *StatManager) calcTableStats(tblname string, layout *rm.Layout, tx *tx.Transaction) (*StatInfo, error) {
 	numRecord := 0
 	numBlock := 0
@@ -99,12 +102,24 @@ func (s *StatManager) calcTableStats(tblname string, layout *rm.Layout, tx *tx.T
 		return nil, err
 	}
 	defer ts.Close()
+	var fldData map[string]*hyperloglog.Sketch //字段都是字符串类型
+	fldData = make(map[string]*hyperloglog.Sketch)
 	for ts.Next() {
 		//遍历当前表，并填充相应的元数据
 		numRecord += 1
 		numBlock = ts.GetRid().BlockNumber() + 1 //通过rid可以获得当前处在哪个区块的哪个slot中
+		//当前可以获得一条记录
+		for _, field := range layout.Schema().Fields() {
+			val := ts.GetVal(field)
+			sketch, ok := fldData[field]
+			if !ok {
+				sketch = hyperloglog.New16()
+				fldData[field] = sketch
+			}
+			sketch.Insert([]byte(val.ToString())) //全部转化成string类型来存储
+		}
 	}
-	return NewStatInfo(numBlock, numRecord), nil
+	return NewStatInfo(numBlock, numRecord, fldData), nil
 
 }
 
