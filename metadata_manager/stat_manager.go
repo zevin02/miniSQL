@@ -20,7 +20,10 @@ import (
 
 const (
 	REFRESH_STAT_INFO_COUNT = 100 //数据库表发生变化100次后更新统计数据
+	HYPERLOGLOG_COUNT       = 100 //一个表管理器
 )
+
+//hyperloglog比起bloom filter在大数据的情况下，内存使用更加有效，使用更小的footprint，对于million的数据，只需要有kb的内存使用，比起bloomfilter更加有效
 
 //StatInfo 一张表的状态信息
 type StatInfo struct {
@@ -49,12 +52,11 @@ func (s *StatInfo) RecordsOutput() int {
 
 //DistinctValue 返回当前表中的某个字段有多少个不同的值
 func (s *StatInfo) DistinctValue(fldName string) int {
-	//return 1 + (s.numRecs / 3)
 	return int(s.fldData[fldName].Estimate()) //从hyperloglog中返回当前数据的基数
 }
 
 //StatManager 状态管理器，管理当前数据库的状态,他只在系统启动的时候创建，在创建的时候，会调用refreshStatistics来创建统计数据并存储在内存中
-
+//在当前的管理器中可以缓存常用的表的某个字段的唯一值，如果全量，全部放在内存中开销太大了
 type StatManager struct {
 	tblgr      *TableManager
 	tableStats map[string]*StatInfo //管理每张表的信息
@@ -113,7 +115,7 @@ func (s *StatManager) calcTableStats(tblname string, layout *rm.Layout, tx *tx.T
 			val := ts.GetVal(field)
 			sketch, ok := fldData[field]
 			if !ok {
-				sketch = hyperloglog.New16()
+				sketch = hyperloglog.New14()
 				fldData[field] = sketch
 			}
 			sketch.Insert([]byte(val.ToString())) //全部转化成string类型来存储

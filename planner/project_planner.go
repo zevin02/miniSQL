@@ -8,7 +8,7 @@ import (
 //ProjectPlan 对project进行计划
 type ProjectPlan struct {
 	p      Plan
-	schema *rm.Schema
+	schema *rm.Schema //挑选出这几个字段
 }
 
 //NewProjectPlan 使用传入的需要筛选的字段来构造projectPlan对象
@@ -44,13 +44,8 @@ func (p *ProjectPlan) RecordsOutput() int {
 
 //DistinctValues project的distinct取决于底层调用对象的值
 func (p *ProjectPlan) DistinctValues(fldName string) int {
-	if p.schema.HashField(fldName) {
-		//当前project中有这个字段,才能进行查找
-		return p.p.DistinctValues(fldName)
-	} else {
-		//如果当前字段不存在，就不需要找了
-		return 0
-	}
+	//如果当前字段不存在，也需要访问底层的table
+	return p.p.DistinctValues(fldName)
 
 }
 

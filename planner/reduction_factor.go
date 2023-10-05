@@ -5,7 +5,7 @@ import (
 	"miniSQL/query"
 )
 
-//CalculateReductionFactor
+//CalculateReductionFactor 根据predicate计算缩小因子
 func CalculateReductionFactor(pred *query.Predicate, plan Plan) int {
 	factor := 1
 	for _, t := range pred.Terms() {
