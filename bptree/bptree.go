@@ -5,30 +5,6 @@ import (
 )
 
 //Latch 用来保护某个数据结构进行保护，对节点进行保护,被操作过程中持有的
-/*
-	crabbing：
-	basic idea:
-1,先获得父根节点，把根节点锁上
-2.发现当前在左子树，先把左子树给锁上
-3.然后再判断，锁上左子树之后，根节点是否能够解锁，如果可以，就把根节点解锁；如次低归
-
-安全节点：
-如果是查找：
-R锁根，R锁子，释放根
-
-如果是delete：
-上写锁，如果当前节点安全：把当前锁之前的所有锁都释放，并继续往下走
-
-操作的时候，第一步，先锁根节点，会成为高并发的瓶颈,我们上面的操作就是一个悲观的操作，实际上一般情况下b+树都很大的，一个叶子节点是改不了根节点的情况
-
-减轻根节点锁的情况
-插入数据的时候，给数据加读锁，在最后叶子节点才加写锁
-但是这个时候发现需要分裂，我们就需要从根节点一路加写锁下来，进行分裂合并操作
-
-叶子节点的扫描可能会出现死锁，从前往后，从后往前，相遇的时候，可能就会出现死锁;只能一个方向行走
-
-
-*/
 
 //BPItem 用来记录数据
 type BPItem struct {
@@ -55,6 +31,7 @@ type BPNode struct {
 	CommonHeader Header //元数据
 	leafNode     *BPLeafNode
 	internalNode *BPInternalNode
+	lock         sync.RWMutex //TODO 后期改成并发管理器来替代
 }
 
 //setValue 向当前的叶子节点种插入元素
@@ -264,26 +241,31 @@ func binarySearchItems(items []BPItem, key int64) int {
 
 //Get B+树的查询
 func (t *BPTree) Get(key int64) interface{} {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	//t.mutex.Lock()
+	//defer t.mutex.Unlock()
+	t.root.lock.RLock()
+	//defer t.root.lock.RUnlock()
 	node := t.root //先获得当前的根节点
 	for {
-		//if len(node.Nodes) > 0 {
 		if node.internalNode != nil {
-			// 使用二分查找，找到大于key的最小非叶子节点
+			// 使用二分查找，找到大于key的最小非叶子节点,当前是非叶子节点
 			index := binarySearchNodes(node.internalNode.Nodes, key)
-			childNode := node.internalNode.Nodes[index]
+			childNode := node.internalNode.Nodes[index] //获得子节点
+			childNode.lock.RLock()                      //先把子节点给锁上
+			node.lock.RUnlock()                         //解锁父节点
 			if childNode == nil {
 				return nil
 			} else {
 				node = childNode
 			}
 		} else {
-			//查找元素
+			//当前是叶子节点查找元素
 			index := binarySearchItems(node.leafNode.Items, key)
 			if node.leafNode.Items[index].key == key {
+				node.lock.RUnlock() //把当前这个锁给解掉
 				return node.leafNode.Items[index].val
 			} else {
+				node.lock.RUnlock() //把当前这个锁给解掉
 				return nil
 			}
 
@@ -341,13 +323,15 @@ func (t *BPTree) Scan(begin int64, end int64) []interface{} {
 func (t *BPTree) Set(key int64, value interface{}) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+	//t.root.lock.RLock()
+	//defer t.root.lock.RUnlock()
 	t.setValue(nil, t.root, key, value)
 }
 
 //setValue 递归的实现数据的插入
 func (t *BPTree) setValue(parent *BPNode, node *BPNode, key int64, value interface{}) {
 	//插入时，首先要先定位到叶子节点,如果是非叶子节点的话，就会直接离开,这个循环
-	//for len(node.Nodes) > 0 {
+
 	for node.internalNode != nil {
 		index := binarySearchNodes(node.internalNode.Nodes, key)
 		childNode := node.internalNode.Nodes[index]

@@ -2,6 +2,7 @@ package bptree
 
 import (
 	"github.com/stretchr/testify/assert"
+	"sync"
 	"testing"
 	"time"
 )
@@ -182,7 +183,7 @@ func TestNewBPTreeDelete3(t *testing.T) {
 
 }
 
-func TestNewBPTreeGet(t *testing.T) {
+func TestNewBPTreeGet1(t *testing.T) {
 	tree := NewBPTree(4)
 	for i := int64(1); i <= 15; i++ {
 		tree.Set(i, i)
@@ -195,6 +196,60 @@ func TestNewBPTreeGet(t *testing.T) {
 	tree.Remove(14)
 	assert.Nil(t, tree.Get(14))
 	tree.Set(14, 14)
+}
+
+func TestNewBPTreeGet2(t *testing.T) {
+	tree := NewBPTree(4)
+	for i := int64(1); i <= 15; i++ {
+		tree.Set(i, i)
+	}
+
+	go func() {
+		for i := int64(1); i <= 10; i++ {
+			assert.Equal(t, i, tree.Get(i))
+		}
+	}()
+	go func() {
+		for i := int64(5); i <= 15; i++ {
+			assert.Equal(t, i, tree.Get(i))
+		}
+	}()
+	time.Sleep(1 * time.Second)
+	assert.Nil(t, tree.Get(0))
+	assert.Nil(t, tree.Get(16))
+	assert.Equal(t, int64(14), tree.Get(14))
+	time.Sleep(1 * time.Second)
+
+}
+
+func TestNewBPTreeGet3(t *testing.T) {
+	tree := NewBPTree(4)
+	for i := int64(1); i <= 15; i++ {
+		tree.Set(i, i)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := int64(1); i <= 10; i++ {
+			assert.Equal(t, i, tree.Get(i))
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := int64(5); i <= 15; i++ {
+			assert.Equal(t, i, tree.Get(i))
+		}
+	}()
+
+	wg.Wait()
+	time.Sleep(1 * time.Second)
+	assert.Nil(t, tree.Get(0))
+	assert.Nil(t, tree.Get(16))
+	assert.Equal(t, int64(14), tree.Get(14))
 }
 
 func TestNewBPTreeConcurrency(t *testing.T) {
