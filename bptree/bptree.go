@@ -241,10 +241,8 @@ func binarySearchItems(items []BPItem, key int64) int {
 
 //Get B+树的查询
 func (t *BPTree) Get(key int64) interface{} {
-	//t.mutex.Lock()
-	//defer t.mutex.Unlock()
+
 	t.root.lock.RLock()
-	//defer t.root.lock.RUnlock()
 	node := t.root //先获得当前的根节点
 	for {
 		if node.internalNode != nil {
@@ -321,47 +319,73 @@ func (t *BPTree) Scan(begin int64, end int64) []interface{} {
 
 //Set 往B+树中插入数据
 func (t *BPTree) Set(key int64, value interface{}) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	//t.root.lock.RLock()
-	//defer t.root.lock.RUnlock()
 	t.setValue(nil, t.root, key, value)
 }
 
 //setValue 递归的实现数据的插入
 func (t *BPTree) setValue(parent *BPNode, node *BPNode, key int64, value interface{}) {
 	//插入时，首先要先定位到叶子节点,如果是非叶子节点的话，就会直接离开,这个循环
-
+	node.lock.RLock() //进来先加入一个读锁
 	for node.internalNode != nil {
 		index := binarySearchNodes(node.internalNode.Nodes, key)
 		childNode := node.internalNode.Nodes[index]
+		//释放当前节点的读锁
+		node.lock.RUnlock()
 		t.setValue(node, childNode, key, value) //低归的进入到这个函数中进行添加节点
+		//递归回来之后，再次得到当前节点的读锁
+		node.lock.RLock()
 		break
 	}
-	//定位到叶子节点
-	//if len(node.Nodes) < 1 {
+	//定位到叶子节点,叶子节点才要加写锁
 	if node.leafNode != nil {
+		node.lock.RUnlock() //把当前节点的读锁释放
+		node.lock.Lock()    //给当前节点加写锁
+		defer node.lock.Unlock()
 		//当前低归到了叶子节点,没有子节点
 		node.setValue(key, value)
 	}
 	//节点先插入后分裂，尝试是否会发生节点的分裂,这个地方既可能是非叶子节点，也可能是叶子节点
-	nodeNew := t.splitNode(node) //
-	if nodeNew != nil {
+	var isInternalSplit = node.internalNode != nil && len(node.internalNode.Nodes) > t.width
+	var isLeafSplit = node.leafNode != nil && len(node.leafNode.Items) > t.width
+	if isInternalSplit || isLeafSplit {
+		//因为当前进来已经加了读锁，所以需要改成一个写锁
+		if node.internalNode != nil {
+			//当前是非叶子节点的情况下处与读锁状态
+			node.lock.RUnlock() //把当前节点的读锁释放
+			node.lock.Lock()    //给当前节点加写锁
+			defer node.lock.Unlock()
+		}
+		//当前可以被分裂所以就需要进行分裂
+		nodeNew := t.splitNode(node, isInternalSplit, isLeafSplit) //
+		defer nodeNew.lock.Unlock()                                //把当前的写锁给释放掉
+		if parent != nil {
+			parent.lock.Lock()
+			defer parent.lock.Unlock()
+		}
 		//当前出现了一个新的节点，说明发生了节点的分裂
 		//如果父节点不存在的话，就需要创建一个新的父节点
+		//由于当前是出与分裂状态，上面加了一个写锁，所以当前都处与写锁状态
 		if parent == nil {
 			if node.leafNode != nil && node.CommonHeader.isRoot {
-				//
 				node.CommonHeader.isRoot = false //改变当前为非根节点
 			}
 			parent = newIndexNode(t.width)
+			parent.lock.Lock() //先把当前加锁
+			defer parent.lock.Unlock()
 			parent.addChild(node) //把当前的节点添加为子节点
 			parent.CommonHeader.isRoot = true
 			t.root = parent //更新根节点
 		}
-
+		//因为当前节点的父节点一直没有上锁，所以只可能是在当前第一次上锁，或者是创造新父亲的时候上一次写锁
 		parent.addChild(nodeNew) //把新节点也添加上
+	} else {
+		//当前不需要被分裂
+		if node.internalNode != nil {
+			defer node.lock.RUnlock()
+		}
 	}
+
+	//如果是叶子节点就释放写锁
 	if parent != nil && parent.CommonHeader.maxKey < key { //一层一层往上面低归修改最大值
 		parent.CommonHeader.maxKey = key
 	}
@@ -369,19 +393,23 @@ func (t *BPTree) setValue(parent *BPNode, node *BPNode, key int64, value interfa
 }
 
 //对节点进行分裂
-func (t *BPTree) splitNode(node *BPNode) *BPNode {
-	if node.internalNode != nil && len(node.internalNode.Nodes) > t.width {
+func (t *BPTree) splitNode(node *BPNode, isInternalSplit, isLeafSplit bool) *BPNode {
+	if isInternalSplit {
+		//进来就已经是写锁状态
 		//如果当前的非叶子节点，他的子节点数超过了width宽度，说明就要创建新节点
-		node2 := newIndexNode(t.width)                                                                                                    //构造一个新节点
+		//由于当前进来加的是读锁，改成
+		node2 := newIndexNode(t.width) //构造一个新节点
+		node2.lock.Lock()
 		node2.internalNode.Nodes = append(node2.internalNode.Nodes, node.internalNode.Nodes[t.halfWidth:len(node.internalNode.Nodes)]...) //移动一半的数据到新节点中
 		node2.CommonHeader.maxKey = node2.internalNode.Nodes[len(node2.internalNode.Nodes)-1].CommonHeader.maxKey
 		//修改原节点的数据
 		node.internalNode.Nodes = node.internalNode.Nodes[0:t.halfWidth]
 		node.CommonHeader.maxKey = node.internalNode.Nodes[len(node.internalNode.Nodes)-1].CommonHeader.maxKey
 		return node2
-	} else if node.leafNode != nil && len(node.leafNode.Items) > t.width {
+	} else if isLeafSplit {
 		//如果当前是叶子节点，同时当前节点的元素超过了width宽度，就需要增加新的节点
-		node2 := NewLeafNode(t.width)                                                                                     //得到一个新节点
+		node2 := NewLeafNode(t.width) //得到一个新节点
+		node2.lock.Lock()
 		node2.leafNode.Items = append(node2.leafNode.Items, node.leafNode.Items[t.halfWidth:len(node.leafNode.Items)]...) //移动后面一半的节点到node2中
 		node2.CommonHeader.maxKey = node2.leafNode.Items[len(node2.leafNode.Items)-1].key                                 //最大值，就是最后一个元素的值了
 		//修改原来节点的数据
@@ -392,7 +420,7 @@ func (t *BPTree) splitNode(node *BPNode) *BPNode {
 		node.CommonHeader.maxKey = node.leafNode.Items[len(node.leafNode.Items)-1].key //更新当前节点的最大值
 		return node2
 	}
-	//当前元素不需要进行更新
+	//当前元素不需要进行更新,当前节点加的仍然还是读锁，没有变化
 	return nil
 }
 

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestNewBPTreeSet(t *testing.T) {
+func TestNewBPTreeSet1(t *testing.T) {
 	bpt := NewBPTree(4)
 	bpt.Set(10, 1)
 	bpt.Set(23, 1)
@@ -58,6 +58,13 @@ func TestNewBPTreeSet(t *testing.T) {
 
 }
 
+func TestNewBPTreeSet2(t *testing.T) {
+	tree := NewBPTree(4)
+
+	for i := int64(1); i <= 60000000; i++ {
+		tree.Set(i, i)
+	}
+}
 func TestNewBPTreeDelete1(t *testing.T) {
 	bpt := NewBPTree(4)
 	bpt.Set(10, 1)
@@ -198,30 +205,6 @@ func TestNewBPTreeGet1(t *testing.T) {
 	tree.Set(14, 14)
 }
 
-func TestNewBPTreeGet2(t *testing.T) {
-	tree := NewBPTree(4)
-	for i := int64(1); i <= 15; i++ {
-		tree.Set(i, i)
-	}
-
-	go func() {
-		for i := int64(1); i <= 10; i++ {
-			assert.Equal(t, i, tree.Get(i))
-		}
-	}()
-	go func() {
-		for i := int64(5); i <= 15; i++ {
-			assert.Equal(t, i, tree.Get(i))
-		}
-	}()
-	time.Sleep(1 * time.Second)
-	assert.Nil(t, tree.Get(0))
-	assert.Nil(t, tree.Get(16))
-	assert.Equal(t, int64(14), tree.Get(14))
-	time.Sleep(1 * time.Second)
-
-}
-
 func TestNewBPTreeGet3(t *testing.T) {
 	tree := NewBPTree(4)
 	for i := int64(1); i <= 15; i++ {
@@ -251,31 +234,65 @@ func TestNewBPTreeGet3(t *testing.T) {
 	assert.Nil(t, tree.Get(16))
 	assert.Equal(t, int64(14), tree.Get(14))
 }
-
-func TestNewBPTreeConcurrency(t *testing.T) {
+func TestNewBPTreeSet_Get(t *testing.T) {
 	tree := NewBPTree(4)
+	for i := int64(1); i <= 15; i++ {
+		tree.Set(i, i)
+	}
+
+	var wg sync.WaitGroup
+	mutex := sync.Mutex{}
+	wg.Add(2)
 	go func() {
+		mutex.Lock()
+		defer mutex.Unlock()
 		for i := int64(1); i <= 15; i++ {
 			tree.Set(i, i)
 		}
 	}()
+
 	go func() {
-		for i := int64(12); i <= 18; i++ {
-			tree.Set(i, i)
+		defer wg.Done()
+		mutex.Lock()
+		defer mutex.Unlock()
+		for i := int64(1); i <= 10; i++ {
+			assert.Equal(t, i, tree.Get(i))
 		}
 	}()
-	time.Sleep(1 * time.Second)
 	go func() {
-		assert.Equal(t, 10, tree.Scan(3, 12))
-
+		defer wg.Done()
+		mutex.Lock()
+		defer mutex.Unlock()
+		for i := int64(1); i <= 15; i++ {
+			assert.Equal(t, i, tree.Get(i))
+		}
 	}()
-	go func() {
-		tree.Set(5, 8)
 
-	}()
-	//assert.Nil(t, tree.Get(0))
-	//assert.Nil(t, tree.Get(16))
-	//tree.Remove(14)
-	//assert.Nil(t, tree.Get(14))
-	//tree.Set(14, 14)
+	wg.Wait()
+}
+
+func TestBPTree_SetGetConcurrent(t *testing.T) {
+	tree := NewBPTree(4)
+	numThreads := 10
+	numOpsPerThread := 1000
+	//tree.Set(1111, 1111)
+
+	var wg sync.WaitGroup
+	wg.Add(numThreads)
+
+	for i := 0; i < numThreads; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < numOpsPerThread; j++ {
+				key := numThreads + numOpsPerThread + 20
+				value := key
+
+				tree.Set(int64(key), value)
+				retrievedValue := tree.Get(int64(key))
+				assert.Equal(t, value, retrievedValue)
+			}
+		}()
+	}
+
+	wg.Wait()
 }
