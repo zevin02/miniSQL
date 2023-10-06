@@ -394,14 +394,15 @@ func (t *BPTree) setValue(parent *BPNode, node *BPNode, key int64, value interfa
 
 //对节点进行分裂
 func (t *BPTree) splitNode(node *BPNode, isInternalSplit, isLeafSplit bool) *BPNode {
+	//一旦进入就说明当前是处与分裂状态，都是写锁状态
 	if isInternalSplit {
-		//进来就已经是写锁状态
 		//如果当前的非叶子节点，他的子节点数超过了width宽度，说明就要创建新节点
-		//由于当前进来加的是读锁，改成
 		node2 := newIndexNode(t.width) //构造一个新节点
 		node2.lock.Lock()
 		node2.internalNode.Nodes = append(node2.internalNode.Nodes, node.internalNode.Nodes[t.halfWidth:len(node.internalNode.Nodes)]...) //移动一半的数据到新节点中
-		node2.CommonHeader.maxKey = node2.internalNode.Nodes[len(node2.internalNode.Nodes)-1].CommonHeader.maxKey
+		if len(node2.internalNode.Nodes)-1 >= 0 {
+			node2.CommonHeader.maxKey = node2.internalNode.Nodes[len(node2.internalNode.Nodes)-1].CommonHeader.maxKey
+		}
 		//修改原节点的数据
 		node.internalNode.Nodes = node.internalNode.Nodes[0:t.halfWidth]
 		node.CommonHeader.maxKey = node.internalNode.Nodes[len(node.internalNode.Nodes)-1].CommonHeader.maxKey
@@ -420,42 +421,62 @@ func (t *BPTree) splitNode(node *BPNode, isInternalSplit, isLeafSplit bool) *BPN
 		node.CommonHeader.maxKey = node.leafNode.Items[len(node.leafNode.Items)-1].key //更新当前节点的最大值
 		return node2
 	}
-	//当前元素不需要进行更新,当前节点加的仍然还是读锁，没有变化
 	return nil
 }
 
 //Remove 删除key所在的节点元素
 func (t *BPTree) Remove(key int64) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
 	t.deleteItem(nil, t.root, key)
 }
 
 func (t *BPTree) deleteItem(parent *BPNode, node *BPNode, key int64) {
-	//低归的向下查找节点
+	//递归的向下查找节点
+	node.lock.RLock() //进来先加入一个读锁
+
 	for node.internalNode != nil {
 		index := binarySearchNodes(node.internalNode.Nodes, key)
 		childNode := node.internalNode.Nodes[index]
+		//释放当前节点的读锁
+		node.lock.RUnlock()
 		t.deleteItem(node, childNode, key) //低归的进入到这个函数中进行添加节点
+		node.lock.RLock()
 		break
 	}
+
 	if node.leafNode != nil {
 		//当前低归到了叶子节点,没有子节点
+		node.lock.RUnlock() //把当前节点的读锁释放
+		node.lock.Lock()    //给当前节点加写锁
+		defer node.lock.Unlock()
 		node.deleteItem(key)
 		if len(node.leafNode.Items) < t.halfWidth {
 			//删除当前的节点后，如果当前的节点的key数量<[m/2],就需要借兄弟的，或者和兄弟合并
+			parent.lock.Lock()
+			defer parent.lock.Unlock()
 			t.itemMoveOrMerge(parent, node)
 		}
 		//删除当前的节点后，如果当前的节点的key数量>=[m/2],就删除完毕
 
 	} else {
-		//当前的非叶子节点
-		node.CommonHeader.maxKey = node.internalNode.Nodes[len(node.internalNode.Nodes)-1].CommonHeader.maxKey //更新当前节点的最大值
-		if len(node.internalNode.Nodes) < t.halfWidth {
-			//当前的节点的
-			t.childMoveOrMerge(parent, node)
-		}
+		//当前的非叶子节点，当前是rlock，如果是删除的key，就是最大的key，就需要改成写锁
+		isMaxKeyNotEqual := node.CommonHeader.maxKey != node.internalNode.Nodes[len(node.internalNode.Nodes)-1].CommonHeader.maxKey
+		isNodeUnderflow := len(node.internalNode.Nodes) < t.halfWidth
+		var shouldChangeLock = isMaxKeyNotEqual || isNodeUnderflow
+		if shouldChangeLock {
+			node.lock.RUnlock() //把当前节点的读锁释放
+			node.lock.Lock()    //给当前节点加写锁
+			defer node.lock.Unlock()
+			if isMaxKeyNotEqual {
+				node.CommonHeader.maxKey = node.internalNode.Nodes[len(node.internalNode.Nodes)-1].CommonHeader.maxKey //更新当前节点的最大值
+			}
+			if isNodeUnderflow {
+				//当前的节点的
 
+				t.childMoveOrMerge(parent, node)
+			}
+		} else {
+			node.lock.RUnlock()
+		}
 	}
 }
 
@@ -476,6 +497,8 @@ func (t *BPTree) itemMoveOrMerge(parent *BPNode, node *BPNode) {
 	//将左边的节点取一个记录移动到被删除的节点
 	if left != nil && len(left.leafNode.Items) > t.halfWidth {
 		//左边的节点存在，同时删除一个元素不会影响到树的结构
+		left.lock.Lock()
+		defer left.lock.Unlock()
 		item := left.leafNode.Items[len(left.leafNode.Items)-1]                        //把最后一个节点取出来
 		left.leafNode.Items = left.leafNode.Items[0 : len(left.leafNode.Items)-1]      //删除当前的节点
 		left.CommonHeader.maxKey = left.leafNode.Items[len(left.leafNode.Items)-1].key //更新左边节点的最大值
@@ -485,6 +508,8 @@ func (t *BPTree) itemMoveOrMerge(parent *BPNode, node *BPNode) {
 	//将右侧节点取一个记录到被删除的节点
 	if right != nil && len(right.leafNode.Items) > t.halfWidth {
 		//右边节点取出一个，一定比被删除的节点要大，所以取出第一个
+		right.lock.Lock()
+		defer right.lock.Unlock()
 		item := right.leafNode.Items[0]
 		right.leafNode.Items = right.leafNode.Items[1:]         //删除当前的节点
 		node.leafNode.Items = append(node.leafNode.Items, item) //右边节点一定是比被删除节点大的，所以要尾插
@@ -494,6 +519,8 @@ func (t *BPTree) itemMoveOrMerge(parent *BPNode, node *BPNode) {
 	//合并都是向左合并
 	//与左侧节点进行合并,把当前这个节点合并到左侧节点来
 	if left != nil && len(left.leafNode.Items)+len(node.leafNode.Items) < t.width {
+		left.lock.Lock()
+		defer left.lock.Unlock()
 		left.leafNode.Items = append(left.leafNode.Items, node.leafNode.Items...)
 		left.leafNode.Next = node.leafNode.Next
 		left.CommonHeader.maxKey = left.leafNode.Items[len(left.leafNode.Items)-1].key
@@ -503,6 +530,8 @@ func (t *BPTree) itemMoveOrMerge(parent *BPNode, node *BPNode) {
 	}
 	//与右侧节点进行合并，把右侧节点移动到当前这个被删除的节点来
 	if right != nil && len(right.leafNode.Items)+len(node.leafNode.Items) < t.width {
+		right.lock.Lock()
+		defer right.lock.Unlock()
 		node.leafNode.Items = append(node.leafNode.Items, right.leafNode.Items...) //把右边节点合并到当前的节点
 		//把节点进行删除
 		node.leafNode.Next = right.leafNode.Next
@@ -517,6 +546,8 @@ func (t *BPTree) childMoveOrMerge(parent *BPNode, node *BPNode) {
 	if parent == nil {
 		return
 	}
+	parent.lock.Lock()
+	defer parent.lock.Unlock()
 	var left *BPNode = nil  //如果左边没有就不需要去得到
 	var right *BPNode = nil //如果右边没有数据就不需要去得到
 	index := binarySearchNodes(parent.internalNode.Nodes, node.CommonHeader.maxKey)
@@ -531,6 +562,8 @@ func (t *BPTree) childMoveOrMerge(parent *BPNode, node *BPNode) {
 
 	//将左边的节点取一个记录移动到被删除的节点
 	if left != nil && len(left.internalNode.Nodes) > t.halfWidth {
+		left.lock.Lock()
+		defer left.lock.Unlock()
 		//左边的节点存在，同时删除一个元素不会影响到树的结构
 		item := left.internalNode.Nodes[len(left.internalNode.Nodes)-1]                       //把最后一个节点取出来
 		left.internalNode.Nodes = left.internalNode.Nodes[0 : len(left.internalNode.Nodes)-1] //删除当前的节点
@@ -540,6 +573,8 @@ func (t *BPTree) childMoveOrMerge(parent *BPNode, node *BPNode) {
 	}
 	//将右侧节点取一个记录到被删除的节点
 	if right != nil && len(right.internalNode.Nodes) > t.halfWidth {
+		right.lock.Lock()
+		defer right.lock.Unlock()
 		//右边节点取出一个，一定比被删除的节点要大，所以取出第一个
 		item := right.internalNode.Nodes[0]                             //获得右节点的第一个节点元素
 		right.internalNode.Nodes = right.internalNode.Nodes[1:]         //删除当前的节点
@@ -549,6 +584,8 @@ func (t *BPTree) childMoveOrMerge(parent *BPNode, node *BPNode) {
 	}
 	//与左侧节点进行合并
 	if left != nil && len(left.internalNode.Nodes)+len(node.internalNode.Nodes) < t.width {
+		left.lock.Lock()
+		defer left.lock.Unlock()
 		left.internalNode.Nodes = append(left.internalNode.Nodes, node.internalNode.Nodes...)
 		left.CommonHeader.maxKey = left.internalNode.Nodes[len(left.internalNode.Nodes)-1].CommonHeader.maxKey
 		//在父节点中删除当前的这个节点
@@ -557,6 +594,8 @@ func (t *BPTree) childMoveOrMerge(parent *BPNode, node *BPNode) {
 	}
 	//与右侧节点进行合并
 	if right != nil && len(right.internalNode.Nodes)+len(node.internalNode.Nodes) < t.width {
+		right.lock.Lock()
+		defer right.lock.Unlock()
 		node.internalNode.Nodes = append(node.internalNode.Nodes, right.internalNode.Nodes...) //把右边节点合并到当前的节点
 		//把节点进行删除
 		node.CommonHeader.maxKey = node.internalNode.Nodes[len(node.internalNode.Nodes)-1].CommonHeader.maxKey

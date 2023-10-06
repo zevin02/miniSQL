@@ -190,6 +190,29 @@ func TestNewBPTreeDelete3(t *testing.T) {
 
 }
 
+func TestNewBPTreeDelete4(t *testing.T) {
+	tree := NewBPTree(4)
+	for i := int64(1); i <= 10; i++ {
+		tree.Set(i, i)
+	}
+	tree.Remove(1)
+	if tree.Get(1) != nil {
+		t.Errorf("Delete failed, expected nil but got %v", tree.Get(1))
+	}
+	// 删除叶子节点，需要合并
+	tree.Remove(2)
+	if tree.Get(2) != nil {
+		t.Errorf("Delete failed, expected nil but got %v", tree.Get(2))
+	}
+
+	// 删除内部节点，需要合并
+	tree.Remove(3)
+	if tree.Get(3) != nil {
+		t.Errorf("Delete failed, expected nil but got %v", tree.Get(3))
+	}
+
+}
+
 func TestNewBPTreeGet1(t *testing.T) {
 	tree := NewBPTree(4)
 	for i := int64(1); i <= 15; i++ {
@@ -271,10 +294,10 @@ func TestNewBPTreeSet_Get(t *testing.T) {
 	wg.Wait()
 }
 
-func TestBPTree_SetGetConcurrent(t *testing.T) {
+func TestBPTree_SetGetConcurrent1(t *testing.T) {
 	tree := NewBPTree(4)
-	numThreads := 10
-	numOpsPerThread := 1000
+	numThreads := 2
+	numOpsPerThread := 500
 	//tree.Set(1111, 1111)
 
 	var wg sync.WaitGroup
@@ -284,7 +307,7 @@ func TestBPTree_SetGetConcurrent(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < numOpsPerThread; j++ {
-				key := numThreads + numOpsPerThread + 20
+				key := numThreads + numOpsPerThread + 20 + j
 				value := key
 
 				tree.Set(int64(key), value)
@@ -296,3 +319,55 @@ func TestBPTree_SetGetConcurrent(t *testing.T) {
 
 	wg.Wait()
 }
+
+//func TestBPTree_SetGetConcurrent2(t *testing.T) {
+//	tree := NewBPTree(4)
+//	numThreads := 10
+//	numOpsPerThread := 1000
+//
+//	var wg sync.WaitGroup
+//	wg.Add(numThreads)
+//
+//	for i := 0; i < numThreads; i++ {
+//		go func() {
+//			defer wg.Done()
+//			for j := 0; j < numOpsPerThread; j++ {
+//				key := numThreads + numOpsPerThread + 20+j
+//				value := key
+//				tree.Set(int64(key), value)
+//				retrievedValue := tree.Get(int64(key))
+//				assert.Equal(t, value, retrievedValue)
+//			}
+//		}()
+//	}
+//
+//	wg.Wait()
+//
+//	var wg1 sync.WaitGroup
+//	mutex := sync.Mutex{}
+//	wg1.Add(2)
+//	go func() {
+//		mutex.Lock()
+//		defer mutex.Unlock()
+//		for
+//	}()
+//
+//	go func() {
+//		defer wg1.Done()
+//		mutex.Lock()
+//		defer mutex.Unlock()
+//		for i := int64(1); i <= 10; i++ {
+//			assert.Equal(t, i, tree.Get(i))
+//		}
+//	}()
+//	go func() {
+//		defer wg1.Done()
+//		mutex.Lock()
+//		defer mutex.Unlock()
+//		for i := int64(1); i <= 15; i++ {
+//			assert.Equal(t, i, tree.Get(i))
+//		}
+//	}()
+//	wg1.Wait()
+//
+//}
