@@ -5,16 +5,18 @@ import (
 )
 
 //Latch 用来保护某个数据结构进行保护，对节点进行保护,被操作过程中持有的
+const PageSize = 4 * 1024
 
 //BPItem 用来记录数据
 type BPItem struct {
-	key int64
-	val interface{}
+	key int64       //主键值
+	val interface{} //这个区块的值
 }
 type Header struct {
 	isIndex bool  //是否是索引节点
 	isRoot  bool  //是否是根节点
-	maxKey  int64 //当前节点第最大值
+	maxKey  int64 //当前节点的最大的主键值
+	pageId  int64 //当前的页号
 }
 
 type BPInternalNode struct {
