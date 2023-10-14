@@ -13,6 +13,7 @@ type TablePlan struct {
 	tblName string       //表名
 	layout  *rm.Layout   //表的格式信息
 	si      *mm.StatInfo //表的统计信息
+	cost    float64      //查询树的成本,一开始是当前执行之前的大小，执行完Cost之后，才是当前完整的查询树的成本
 }
 
 //NewTablePlan 初始化当前的TablePlanner
@@ -30,6 +31,9 @@ func NewTablePlan(tx *tx.Transaction, tblName string, md *mm.MetaDataManager) (*
 	if tblPlanner.si, err = md.GetStatInfo(tblName, tblPlanner.layout, tx); err != nil {
 		return nil, nil
 	}
+
+	//计算查询树的成本
+	tblPlanner.cost = tblPlanner.Cost()
 	return tblPlanner, nil
 }
 
@@ -57,4 +61,11 @@ func (t *TablePlan) DistinctValues(fldName string) int {
 
 func (t *TablePlan) Schema() rm.SchemaInterface {
 	return t.layout.Schema()
+}
+
+//Cost 计算当前步骤的开销
+func (t *TablePlan) Cost() float64 {
+	cost := float64(t.BlockAccessed())*ioCost + float64(t.RecordsOutput())*cpuCost //计算出当前的成本
+	t.cost += cost
+	return t.cost
 }

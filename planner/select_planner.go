@@ -9,14 +9,18 @@ import (
 type SelectPlan struct {
 	p    Plan             //因为是构建查询树，可能是在tableplan的基础上，也可能是在projectplan的基础上
 	pred *query.Predicate //当前select的查询条件
+	cost float64          //执行到当前select的开销情况
 }
 
 //NewSelectPlan 返回当前的selectPlan对象
 func NewSelectPlan(p Plan, pred *query.Predicate) *SelectPlan {
-	return &SelectPlan{
+	selectPlan := &SelectPlan{
 		p:    p,
 		pred: pred,
+		cost: p.Cost(), //获得当前之前的所有的成本开销
 	}
+	selectPlan.cost = selectPlan.Cost()
+	return selectPlan
 }
 
 //Open 打开当前的selectScan对象
@@ -66,4 +70,11 @@ func (s *SelectPlan) DistinctValues(fldName string) int {
 
 func (s *SelectPlan) Schema() rm.SchemaInterface {
 	return s.p.Schema()
+}
+
+func (s *SelectPlan) Cost() float64 {
+	//一次磁盘块的IO访问都是1.0的成本开销，一条记录的CPU比对都有0.2的CPU成本开销
+	cost := float64(s.BlockAccessed())*ioCost + float64(s.RecordsOutput())*cpuCost //计算出当前的成本
+	s.cost += cost
+	return s.cost
 }

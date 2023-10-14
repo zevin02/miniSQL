@@ -9,6 +9,7 @@ import (
 type ProjectPlan struct {
 	p      Plan
 	schema *rm.Schema //挑选出这几个字段
+	cost   float64    //执行到当前project的开销情况
 }
 
 //NewProjectPlan 使用传入的需要筛选的字段来构造projectPlan对象
@@ -16,7 +17,9 @@ func NewProjectPlan(p Plan, fieldList []string) *ProjectPlan {
 	projectPlan := &ProjectPlan{
 		p:      p,
 		schema: rm.NewSchema(),
+		cost:   p.Cost(), //获得当前路径之前的成本开销
 	}
+	projectPlan.cost = projectPlan.Cost()
 	for _, field := range fieldList {
 		projectPlan.schema.Add(field, projectPlan.p.Schema()) //在他底部表的schema结构的基础上筛选我们需要的字段进来
 	}
@@ -51,4 +54,10 @@ func (p *ProjectPlan) DistinctValues(fldName string) int {
 
 func (p *ProjectPlan) Schema() rm.SchemaInterface {
 	return p.schema
+}
+
+func (p *ProjectPlan) Cost() float64 {
+	cost := float64(p.BlockAccessed())*ioCost + float64(p.RecordsOutput())*cpuCost //计算出当前的成本
+	p.cost += cost                                                                 //执行完当前操作之后才是整个路径的开销成本
+	return p.cost
 }

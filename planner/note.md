@@ -12,7 +12,7 @@
 
 根据上述数据，递归调用这些 Scan 对象的值。
 
-# 查询树[product_planner.go](product_planner.go)
+# 查询树
 
 1. project -> select -> customer
 
@@ -130,6 +130,9 @@ mysql> show table status like 'iam_user';
 
 
 覆盖查询如果可以查询到数据的话，就应该避免回表查询
+
+## 多表查询成本
+数据库的多表查询采用的是`嵌套循环查询`的方法
 
 
 ### 找到成本最低的执行计划
