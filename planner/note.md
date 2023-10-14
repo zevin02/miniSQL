@@ -1,28 +1,28 @@
 # 概念
-B（s）->执行过程中访问了多少个区块
-R（s）->执行后返回了多少条记录
-V（s，F）->返回记录中字段包含不同值的数量
-s对应的就是Scan对象
->比如有一张表的格式 student name age
-> 返回了10条记录，
-> 3条记录->age=18
-> 4条记录->age=19
-> 3条记录->age=20
-> V(s,F)=3，因为对于age这个变量只有3个不同的值
 
-对于上面这些数据，递归的调用这些scan对象的值
+- B(s)：表示执行过程中访问了多少个区块。
+- R(s)：表示执行后返回了多少条记录。
+- V(s, F)：表示返回记录中字段包含不同值的数量。
+- s 对应的是 Scan 对象。
 
-# 查询树
-1. project->select->customer
-这是一种查询树，对数据表customer先做select操作，把所有符合条件的行记录都抽取出来，再做project操作
-把所有需要的列抽取出来
+例如，有一张表的格式为 `student name age`，返回了10条记录：
+- 3条记录：age=18
+- 4条记录：age=19
+- 3条记录：age=20
 
+根据上述数据，递归调用这些 Scan 对象的值。
 
-2. select->project->customer
-这也是一种查询树，对customer先做project操作，把需要的列全部赛选出来，再根据条件，把符合条件的行记录赛选出来
+# 查询树[product_planner.go](product_planner.go)
 
-不同查询树对数据操作的效率影响很大，所以我们需要构造出来所有可能的查询树后，计算不同的查询树的执行效率，选出最好的那个
-这个步骤叫做`planning`
+1. project -> select -> customer
+
+   这是一种查询树，先对数据表 customer 进行 select 操作，将所有符合条件的行记录抽取出来，然后进行 project 操作，抽取所需的列。
+
+2. select -> project -> customer
+
+   这也是一种查询树，先对 customer 进行 project 操作，将需要的列筛选出来，然后根据条件筛选出符合条件的行记录。
+
+不同的查询树会对数据操作的效率产生重大影响，因此我们需要构造出所有可能的查询树，并计算不同查询树的执行效率，选择最优的查询树。这个步骤称为 "planning"。
 
 # 计算查询树的效率
 在数据库系统中，最消耗资源的操作就是读取硬盘，比读取内存要慢2到3个层级，读硬盘比读内存慢100倍以上
@@ -109,7 +109,7 @@ mysql> show table status like 'iam_user';
 ### 计算不同索引查询的成本
 使用索引
 1. 直接使用主键查询
-2. 先使用使用二级索引查询索引数据和主键，再根据主键去聚簇索引中回查询表
+2. 先使用使用二级索引查询索引数据和主键，再根据主键去聚簇索引中回表查询
 
 成本主要来自于两个方面
 * 范围区间数量
@@ -140,12 +140,35 @@ mysql> show table status like 'iam_user';
 MySQL的优化器会认为我们写的SQL效率不高，就会对我们写的SQL语句进行优化，这个过程就叫做`查询重写`
 
 ## 子查询优化
-* 相关子查询
-子查询中的执行依赖于外层查询的值
-* 不相关子查询
-子查询可以单独运行出结果，不需要依赖于外层的查询
-
+* <u>相关子查询</u>:
+子查询中的执行依赖于外层查询的值，该子查询是嵌套在外部的查询的循环中，每次迭代都会执行一次子查询
+   ~~~sql
+  SELECT name
+   FROM employees
+   WHERE salary > (SELECT AVG(salary) FROM employees WHERE department = employees.department);
+   ~~~
+* <u>不相关子查询</u>:
+子查询可以单独运行出结果，不需要依赖于外层的查询,会执行一次，把查询的结果传递给外部查询
+  ~~~sql
+   SELECT name
+   FROM employees
+   WHERE salary > (SELECT AVG(salary) FROM employees);
+  ~~~
+   同时当前也可以改成JOIN查询
+  ~~~sql
+  SELECT e.name
+   FROM employees e
+   JOIN (SELECT AVG(salary) as avg_salary FROM employees) avg
+   ON e.salary > avg.avg_salary;
+   ~~~
+  
 <u>不相关子查询到效率比相关子查询的效率要高</u>
+  
+通常情况下`JOIN查询`比`子查询`要来的高效
+- **优化器优化**：db通常会更好的优化 `JOIN`操作，选择更加高效的`执行计划`，包括选择正确的连接方式（内连接，外连接，自连接）,以及正确的使用索引 
+- **只执行一次子查询**:在使用`JOIN`的情况下，只使用一次子查询，而后将结果存储在`内存或临时表`中，而不是在每一行外部查询上执行，
+
+
 
 
 1. 将外连接转化成内连接
@@ -166,7 +189,18 @@ MySQL的优化器会认为我们写的SQL效率不高，就会对我们写的SQL
     INNER JOIN customers c ON o.customer_id = c.customer_id;
     ~~~
     >这个sql会只返回匹配的record，nil不会被返回
+   
+   <u>同时如果给驱动表的where条件中添加上不为空的条件，其就等价为一个内连接,这样当驱动表为null的话即使主表成立，这条记录也无法返回</u>
+
+   ~~~sql
+   SELECT o.order_id, c.name
+   FROM orders o
+   LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE c.customer_id is not null;
+    ~~~
     
+
+
+
 2. 将**EXIST** 转化成**IN** ，再将IN转化成**SEMI-JOIN**
    在子查询中，`exists`用来判断一个子查询是否返回有数据，`IN`判断数据是否存在在一系列值之间 exists只能使用子查询，必须先执行子查询，再执行其他操作
    ~~~SQL
@@ -197,6 +231,7 @@ MySQL的优化器会认为我们写的SQL效率不高，就会对我们写的SQL
       WHERE item_id = 100
    ) i ON o.order_id = i.order_id;
    ~~~
+
 
 
 
