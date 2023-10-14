@@ -19,7 +19,9 @@ func NewSelectPlan(p Plan, pred *query.Predicate) *SelectPlan {
 		pred: pred,
 		cost: p.Cost(), //获得当前之前的所有的成本开销
 	}
-	selectPlan.cost = selectPlan.Cost()
+	//感觉这个地方的成本就不需要加上磁盘IO开销了?
+	cost := float64(selectPlan.BlockAccessed())*ioCost + float64(selectPlan.RecordsOutput())*cpuCost //计算出当前的成本
+	selectPlan.cost += cost
 	return selectPlan
 }
 
@@ -43,7 +45,7 @@ func (s *SelectPlan) BlockAccessed() int {
 	为了简单，我们假设字段不同取值的数量是所有记录的平均
 	如果要去统计的话，工作量很麻烦
 	where age=19 ->会返回3种
-R(s)=R(st)/V(st,f)
+	R(s)=R(st)/V(st,f)
 */
 func (s *SelectPlan) RecordsOutput() int {
 	return s.p.RecordsOutput() / CalculateReductionFactor(s.pred, s.p)
@@ -74,7 +76,5 @@ func (s *SelectPlan) Schema() rm.SchemaInterface {
 
 func (s *SelectPlan) Cost() float64 {
 	//一次磁盘块的IO访问都是1.0的成本开销，一条记录的CPU比对都有0.2的CPU成本开销
-	cost := float64(s.BlockAccessed())*ioCost + float64(s.RecordsOutput())*cpuCost //计算出当前的成本
-	s.cost += cost
 	return s.cost
 }

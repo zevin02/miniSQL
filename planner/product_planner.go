@@ -31,8 +31,8 @@ func NewProductPlan(p1 Plan, p2 Plan) *ProductPlan {
 
 //FindOptimalJoinOrder 查询得到最佳的连表顺序,以及当前连表顺序得到的成本
 func (p *ProductPlan) FindOptimalJoinOrder(p1 Plan, p2 Plan) ([]Plan, float64) {
-	p1_p2Cost := float64(p1.BlockAccessed()) + float64(p1.RecordsOutput()*p2.BlockAccessed())*cpuCost + float64(p1.BlockAccessed()*p2.BlockAccessed())*ioCost //计算得到不同成本的开销
-	p2_p1Cost := float64(p2.BlockAccessed()) + float64(p2.RecordsOutput()*p2.BlockAccessed())*cpuCost + float64(p1.BlockAccessed()*p2.BlockAccessed())*ioCost
+	p1_p2Cost := float64(p1.BlockAccessed())*ioCost + float64(p1.RecordsOutput()*p2.BlockAccessed())*ioCost + float64(p1.RecordsOutput()*p2.RecordsOutput())*cpuCost //计算得到不同成本的开销
+	p2_p1Cost := float64(p2.BlockAccessed())*ioCost + float64(p2.RecordsOutput()*p1.BlockAccessed())*ioCost + float64(p1.RecordsOutput()*p2.RecordsOutput())*cpuCost
 	var planOrders []Plan
 
 	if p1_p2Cost <= p2_p1Cost {

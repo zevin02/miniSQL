@@ -28,6 +28,8 @@ func createStudentTable(tx *tx.Transaction) (*mm.MetaDataManager, error) {
 	ts.BeforeFirst()
 	valForFieldSname := make([]int, 0)
 	for i := 0; i < 50; i++ {
+		//majorId从0-50
+		//gradyear从1990-2040
 		ts.Insert() //指向一个可用插槽
 		ts.SetInt("majorId", i)
 		ts.SetInt("gradyear", 1990+i)
@@ -80,10 +82,20 @@ func TestPlan1(t *testing.T) {
 	c = append(c, "majorId")
 	//p4的结构table->select->project
 	p4 := NewProjectPlan(p3, c)
+
+	//构造一个table->project->select
+	p5 := NewProjectPlan(p1, c)
+	p6 := NewSelectPlan(p5, pred2)
+	p7 := NewProductPlan(p6, p4)
+
 	printStats(1, p1)
 	printStats(2, p2)
 	printStats(3, p3)
 	printStats(4, p4)
+	printStats(5, p5)
+	printStats(6, p6)
+	printStats(7, p7)
+	tx.Commit() //将当前这个事务提交，释放锁
 }
 
 func TestPlan2(t *testing.T) {
@@ -126,4 +138,5 @@ func TestPlan2(t *testing.T) {
 	printStats(2, p2)
 	printStats(3, p3)
 	printStats(4, p4)
+	tx.Commit() //将当前这个事务提交，释放锁
 }

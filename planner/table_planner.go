@@ -33,7 +33,8 @@ func NewTablePlan(tx *tx.Transaction, tblName string, md *mm.MetaDataManager) (*
 	}
 
 	//计算查询树的成本
-	tblPlanner.cost = tblPlanner.Cost()
+	cost := float64(tblPlanner.BlockAccessed())*ioCost + float64(tblPlanner.RecordsOutput())*cpuCost //计算出当前的成本
+	tblPlanner.cost = cost
 	return tblPlanner, nil
 }
 
@@ -50,6 +51,7 @@ func (t *TablePlan) RecordsOutput() int {
 	return t.si.RecordsOutput() //在当前的元数据管理器中查询该表的记录数
 }
 
+//BlockAccessed 当前计算的是全表扫描，后期需要通过索引的方法减少磁盘块的使用，这样全部的都会减少磁盘的IO块的访问，就能够减少开销
 func (t *TablePlan) BlockAccessed() int {
 	return t.si.BLockAccessed() //查询当前访问的区块格式
 }
@@ -65,7 +67,5 @@ func (t *TablePlan) Schema() rm.SchemaInterface {
 
 //Cost 计算当前步骤的开销
 func (t *TablePlan) Cost() float64 {
-	cost := float64(t.BlockAccessed())*ioCost + float64(t.RecordsOutput())*cpuCost //计算出当前的成本
-	t.cost += cost
 	return t.cost
 }

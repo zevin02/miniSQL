@@ -12,6 +12,8 @@ const (
 	在db种，就是通过Plan模块来实现,在构造这个模块的时候，就需要得到他对应的成本开销
 */
 
+//TODO 添加索引后更新对于索引使用的成本计算
+
 type Plan interface {
 	Open() (interface{}, error)        //返回Scan 或UpdateScan对象
 	BlockAccessed() int                //B(s),放回当前操作会访问到的块数
