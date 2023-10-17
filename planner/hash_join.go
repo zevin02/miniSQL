@@ -16,8 +16,8 @@ func partition(records []Record, numPartitions int) [][]Record {
 	return partitions
 }
 
-// 构建哈希表,为各个分区分别构造哈希表
-//map中的key就是当前的记录的连接key，value就是当前对应的记录
+// 构建哈希表,为各个分区分别构造哈希表，以及bloom filter表，加快不存在数据的排查
+//map中的key就是当前的记录的连接key，value就是当前对应的记录,
 func buildHash(records []Record) map[int]string {
 	hashTable := make(map[int]string)
 	for _, record := range records {

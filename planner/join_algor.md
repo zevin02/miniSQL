@@ -86,6 +86,55 @@ Partitioned Hash Join
 
 例如：
 >有两个表R和S
-> 1. 分区：将R和S按照连接的key进行分区，将R分成R1,R2,R3，将S分成S1,S2,S3
+> 1. 分区：将R和S按照连接的key进行分区，将R分成R1,R2,R3，将S分成S1,S2,S3，按道理来说：因为是对同一个连接key进行分块，所以相同的key会被分在同一个分区当中，所以可以锁的粒度，以及尽可能多的放在cache中
 > 2. 构建：针对每个关系的分区，使用shj算法分别构建哈希表，对于每个分区使用相同的hash函数，并将记录插入到ri的哈希表中，对于s表也同样构建哈希表
 > 3. probe：对于每个分区的RI，使用相同的哈希函数计算哈希值，再si的表中查找到匹配的记录
+
+>分区多可以增加hash bucket，减少锁的粒度，减小抢占的冲突风险，同时可以把一个hash bucket放入到cache中，
+> 
+>把relation进行不断的分区，把一个分区的哈希表可以放入
+
+
+### 优化，向量化
+SIMD(单指令多数据)：计算机指令集的扩展，可以在一个指令中同时处理多个数据，把多个数据大包成一个向量，提高程序的并行度和运算速度
+
+我们将hash冲突进行向量化，其加速效果取决于hash join算法全过程有多少部分能够被完全的向量化，数据尽可能多的存储在向量寄存器中
+
+~~~markdown
+您可以使用`github.com/minio/simdjson-go`库中的SIMD向量化技术来加速哈希连接操作。该库提供了高效的JSON解析和处理功能，使用SIMD指令来提高性能。
+
+要使用该库进行哈希连接操作，您可以按照以下步骤进行修改：
+
+1. 首先，确保已安装`github.com/minio/simdjson-go`库。您可以使用以下命令进行安装：
+
+   ```shell
+   go get -u github.com/minio/simdjson-go
+   ```
+
+2. 在代码中导入所需的包：
+
+   ```go
+   import (
+   	"github.com/minio/simdjson-go"
+   )
+   ```
+
+3. 使用`simdjson-go`库中的函数解析JSON数据并构建哈希表。您可以使用`simdjson.Parse([]byte)`函数将JSON数据解析为SIMD JSON对象。
+
+4. 对表R和S进行分区操作，使用SIMD JSON对象构建哈希表。您可以按照以下步骤进行修改：
+
+   - 在`partition`函数中，将输入数据解析为SIMD JSON对象。
+   - 在`buildHash`函数中，使用SIMD JSON对象构建哈希表。
+
+5. 在`probe`函数中，使用SIMD JSON对象进行探测操作。您可以根据记录的连接键在SIMD JSON对象中查找匹配的记录。
+
+6. 最后，在`merge`函数中合并不同分区的符合条件的记录。您可以使用SIMD JSON对象进行合并操作。
+
+通过使用`github.com/minio/simdjson-go`库中的SIMD向量化技术，您可以加速哈希连接操作，并提高性能和效率。请参考该库的文档和示例代码以了解更多详细信息和用法。
+
+
+Hash Join 是通过使用 SIMD 向量化指令来实现加速的。向量化指令属于 SIMD 类型，即单指令多数据。在 Hash Join 中，如果一个向量中的多个 key 值内出现了 hash conflict，理论上就出现了至少两个 branch（无冲突 key 的处理和有冲突 key 的处理），而 SIMD 一定永远在向量上使用相同的指令，这会导致分支预测失败，从而影响性能。
+
+为了解决这个问题，Hash Join 使用 SIMD 的 gather 和 scatter 命令来处理 hash 冲突。具体来说，Hash Join 首先将存储了多个 hash 值的向量按照 scatter 的方式写进内存中，然后通过 gather 读回来获得新的向量。接着，Hash Join 比较原始向量和新的向量的内容，找出因 hash 冲突而被覆盖的位置。最后，Hash Join 利用 mask 将这些位置标记出来，留到下一个迭代再插入 hash 表中，从而减少哈希冲突，提高性能。
+
+~~~
