@@ -138,3 +138,342 @@ Hash Join 是通过使用 SIMD 向量化指令来实现加速的。向量化指�
 为了解决这个问题，Hash Join 使用 SIMD 的 gather 和 scatter 命令来处理 hash 冲突。具体来说，Hash Join 首先将存储了多个 hash 值的向量按照 scatter 的方式写进内存中，然后通过 gather 读回来获得新的向量。接着，Hash Join 比较原始向量和新的向量的内容，找出因 hash 冲突而被覆盖的位置。最后，Hash Join 利用 mask 将这些位置标记出来，留到下一个迭代再插入 hash 表中，从而减少哈希冲突，提高性能。
 
 ~~~
+
+
+
+
+~~~go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"hash/fnv"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+)
+
+type Record struct {
+	Key   string
+	Value string
+}
+
+func main() {
+	// 读取小表S
+	s, err := readTable("s.txt")
+	if err != nil {
+		fmt.Println("读取小表S出错：", err)
+		return
+	}
+
+	// 读取表B
+	b, err := readTable("b.txt")
+	if err != nil {
+		fmt.Println("读取表B出错：", err)
+		return
+	}
+
+	// 第一步：判断是否可以进行内存哈希连接
+	if canMemoryHashJoin(s) {
+		result := memoryHashJoin(s, b)
+		fmt.Println(result)
+		return
+	}
+
+	// 第二步：决定分区数
+	numPartitions := decideNumPartitions(s)
+
+	// 第三步：读取小表S，进行哈希映射和创建哈希表
+	partitions := make([][]Record, numPartitions)
+	hashTables := make([]map[string]string, numPartitions)
+	for i := range partitions {
+		partitions[i] = []Record{}
+		hashTables[i] = make(map[string]string)
+	}
+	for _, record := range s {
+		partitionIndex := hash(record.Key) % numPartitions
+		partitions[partitionIndex] = append(partitions[partitionIndex], record)
+		hashTables[partitionIndex][record.Key] = record.Value
+	}
+
+	// 第四步：建立位图向量
+	bitmaps := make([][]bool, numPartitions)
+	for i := range bitmaps {
+		bitmaps[i] = make([]bool, len(b))
+	}
+	for i, record := range b {
+		partitionIndex := hash(record.Key) % numPartitions
+		bitmaps[partitionIndex][i] = true
+	}
+
+	// 第五步：如果内存不足，将分区写入磁盘
+	for i, partition := range partitions {
+		if len(partition)*2 > hashAreaSize() {
+			writePartition(i, partition)
+			partitions[i] = nil
+			hashTables[i] = nil
+		}
+	}
+
+	// 第六步：读取小表S的剩余部分，重复第三步，直到读取完整个小表S
+	for _, record := range s {
+		if partitions[hash(record.Key)%numPartitions] != nil {
+			continue
+		}
+		partitionIndex := hash(record.Key) % numPartitions
+		partitions[partitionIndex] = append(partitions[partitionIndex], record)
+		hashTables[partitionIndex][record.Key] = record.Value
+		if len(partitions[partitionIndex])*2 > hashAreaSize() {
+			writePartition(partitionIndex, partitions[partitionIndex])
+			partitions[partitionIndex] = nil
+			hashTables[partitionIndex] = nil
+		}
+	}
+
+	// 第七步：按大小对分区进行排序，选取多个分区建立哈希表
+	selectedPartitions := selectPartitions(partitions)
+
+	// 第八步：根据哈希值建立哈希表
+	for _, partitionIndex := range selectedPartitions {
+		hashTable := make(map[string]string)
+		for _, record := range partitions[partitionIndex] {
+			hashTable[record.Key] = record.Value
+		}
+		hashTables[partitionIndex] = hashTable
+	}
+
+	// 第九步：读取表B，使用位图向量进行过滤
+	filteredB := make([]Record, 0, len(b))
+	for i, record := range b {
+		partitionIndex := hash(record.Key) % numPartitions
+		if bitmaps[partitionIndex][i] {
+			filteredB = append(filteredB, record)
+		}
+	}
+
+	// 第十步：将过滤后的数据映射到相应的分区，并计算哈希值
+	for _, record := range filteredB {
+		partitionIndex := hash(record.Key) % numPartitions
+		if hashTables[partitionIndex] == nil {
+			continue
+		}
+		value, ok := hashTables[partitionIndex][record.Key]
+		if ok {
+			result := join(record.Value, value)
+			writeResult(result)
+			continue
+		}
+		partitions[partitionIndex] = append(partitions[partitionIndex], record)
+		hashTables[partitionIndex][record.Key] = record.Value
+		if len(partitions[partitionIndex])*2 > hashAreaSize() {
+			writePartition(partitionIndex, partitions[partitionIndex])
+			partitions[partitionIndex] = nil
+			hashTables[partitionIndex] = nil
+			selectedPartitions = selectPartitions(partitions)
+			for _, partitionIndex := range selectedPartitions {
+				hashTable := make(map[string]string)
+				for _, record := range partitions[partitionIndex] {
+					hashTable[record.Key] = record.Value
+				}
+				hashTables[partitionIndex] = hashTable
+			}
+			bitmaps = make([][]bool, numPartitions)
+			for i := range bitmaps {
+				bitmaps[i] = make([]bool, len(b))
+			}
+			for i, record := range b {
+				partitionIndex := hash(record.Key) % numPartitions
+				bitmaps[partitionIndex][i] = true
+			}
+			filteredB = make([]Record, 0, len(b))
+			for i, record := range b {
+				partitionIndex := hash(record.Key) % numPartitions
+				if bitmaps[partitionIndex][i] {
+					filteredB = append(filteredB, record)
+				}
+			}
+			for _, record := range filteredB {
+				partitionIndex := hash(record.Key) % numPartitions
+				if hashTables[partitionIndex] == nil {
+					continue
+				}
+				value, ok := hashTables[partitionIndex][record.Key]
+				if ok {
+					result := join(record.Value, value)
+					writeResult(result)
+					continue
+				}
+				partitions[partitionIndex] = append(partitions[partitionIndex], record)
+				hashTables[partitionIndex][record.Key] = record.Value
+			}
+			continue
+		}
+    }
+
+    // 第十三步：读取(Si,Bi)进行哈希连接，可能发生动态角色互换
+
+    // 第十四步：如果分区后最小的分区仍大于内存，则进行嵌套循环哈希连接
+
+	fmt.Println("算法执行完毕")
+}
+
+func readTable(filename string) ([]Record, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+
+	var records []Record
+
+	for {
+		line, err := reader.ReadString('\n')
+        if err != nil && err != io.EOF {
+            return nil, err
+        }
+        if line == "" && err == io.EOF {
+            break
+        }
+
+        parts := strings.Split(strings.TrimSpace(line), ",")
+        if len(parts) != 2 {
+            return nil, fmt.Errorf("invalid format: %s", line)
+        }
+
+        records = append(records, Record{Key: parts[0], Value: parts[1]})
+    }
+
+    return records, nil
+}
+
+func canMemoryHashJoin(s []Record) bool {
+    return len(s)*2 <= hashAreaSize()
+}
+
+func memoryHashJoin(s []Record, b []Record) []string {
+    result := make([]string, 0)
+
+    sMap := make(map[string]string)
+    for _, record := range s {
+        sMap[record.Key] = record.Value
+    }
+
+    for _, record := range b {
+        if value, ok := sMap[record.Key]; ok {
+            result = append(result, join(record.Value, value))
+        }
+    }
+
+    return result
+}
+
+func decideNumPartitions(s []Record) int {
+    clusterSize := dbBlockSize() * hashMultiblockIOCount()
+    fAvailMem := 0.8 // 假设可用内存为总内存的80%
+    hashAreaSize := hashAreaSize()
+    return int(float64(hashAreaSize) / float64(clusterSize*fAvailMem))
+}
+
+func hash(key string) int {
+    h := fnv.New32a()
+    h.Write([]byte(key))
+    return int(h.Sum32())
+}
+
+func dbBlockSize() int64 {
+    return 8192 // 假设为8KB
+}
+
+func hashMultiblockIOCount() int64 {
+    return 8 // 假设为8块IO操作同时进行
+}
+
+func hashAreaSize() int {
+    return 1024 * 1024 * 1024 // 假设为1GB
+}
+
+func writePartition(partitionIndex int, partition []Record) error {
+    filename := fmt.Sprintf("partition_%d.txt", partitionIndex)
+    file, err := os.Create(filename)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+
+    writer := bufio.NewWriter(file)
+
+    for _, record := range partition {
+        line := fmt.Sprintf("%s,%s\n", record.Key, record.Value)
+        _, err := writer.WriteString(line)
+        if err != nil {
+            return err
+        }
+    }
+
+    return writer.Flush()
+}
+
+func selectPartitions(partitions [][]Record) []int {
+    type partitionInfo struct {
+        index int
+        size  int
+    }
+
+    infos := make([]partitionInfo, len(partitions))
+    for i, partition := range partitions {
+        infos[i].index = i
+        infos[i].size = len(partition)
+    }
+
+    selectedInfos := make([]partitionInfo, 0)
+    sizeSum := 0
+
+    for sizeSum < hashAreaSize()/2 && len(infos) > 0 {
+        maxInfoIndex := 0
+
+        for i := 1; i < len(infos); i++ {
+            if infos[i].size > infos[maxInfoIndex].size {
+                maxInfoIndex = i
+            }
+        }
+
+        selectedInfos = append(selectedInfos, infos[maxInfoIndex])
+        sizeSum += infos[maxInfoIndex].size
+
+        infos[maxInfoIndex], infos[len(infos)-1] = infos[len(infos)-1], infos[maxInfoIndex]
+        infos = infos[:len(infos)-1]
+    }
+
+    result := make([]int, len(selectedInfos))
+    for i, info := range selectedInfos {
+        result[i] = info.index
+    }
+
+    return result
+}
+
+func join(value1 string, value2 string) string {
+    return value1 + "," + value2 + "\n"
+}
+
+func writeResult(result string) error {
+    file, err := os.OpenFile("result.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+
+    writer := bufio.NewWriter(file)
+
+    _, err = writer.WriteString(result)
+    if err != nil {
+        return err
+    }
+
+    return writer.Flush()
+}
+~~~
