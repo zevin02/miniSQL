@@ -111,7 +111,7 @@ mysql> show table status like 'iam_user';
 1. 直接使用主键查询
 2. 先使用使用二级索引查询索引数据和主键，再根据主键去聚簇索引中回表查询
 
-成本主要来自于两个方面
+xxxxxxxxxx package main​import (    "bufio"    "fmt"    "hash/fnv"    "io"    "os"    "strconv"    "strings")​type Record struct {    Key   string    Value string}​func main() {    // 读取小表S    s, err := readTable("s.txt")    if err != nil {        fmt.Println("读取小表S出错：", err)        return    }​    // 读取表B    b, err := readTable("b.txt")    if err != nil {        fmt.Println("读取表B出错：", err)        return    }​    // 第一步：判断是否可以进行内存哈希连接    if canMemoryHashJoin(s) {        result := memoryHashJoin(s, b)        fmt.Println(result)        return    }​    // 第二步：决定分区数    numPartitions := decideNumPartitions(s)​    // 第三步：读取小表S，进行哈希映射和创建哈希表    partitions := make([][]Record, numPartitions)    hashTables := make([]map[string]string, numPartitions)    for i := range partitions {        partitions[i] = []Record{}        hashTables[i] = make(map[string]string)    }    for _, record := range s {        partitionIndex := hash(record.Key) % numPartitions        partitions[partitionIndex] = append(partitions[partitionIndex], record)        hashTables[partitionIndex][record.Key] = record.Value    }​    // 第四步：建立位图向量    bitmaps := make([][]bool, numPartitions)    for i := range bitmaps {        bitmaps[i] = make([]bool, len(b))    }    for i, record := range b {        partitionIndex := hash(record.Key) % numPartitions        bitmaps[partitionIndex][i] = true    }​    // 第五步：如果内存不足，将分区写入磁盘    for i, partition := range partitions {        if len(partition)*2 > hashAreaSize() {            writePartition(i, partition)            partitions[i] = nil            hashTables[i] = nil        }    }​    // 第六步：读取小表S的剩余部分，重复第三步，直到读取完整个小表S    for _, record := range s {        if partitions[hash(record.Key)%numPartitions] != nil {            continue        }        partitionIndex := hash(record.Key) % numPartitions        partitions[partitionIndex] = append(partitions[partitionIndex], record)        hashTables[partitionIndex][record.Key] = record.Value        if len(partitions[partitionIndex])*2 > hashAreaSize() {            writePartition(partitionIndex, partitions[partitionIndex])            partitions[partitionIndex] = nil            hashTables[partitionIndex] = nil        }    }​    // 第七步：按大小对分区进行排序，选取多个分区建立哈希表    selectedPartitions := selectPartitions(partitions)​    // 第八步：根据哈希值建立哈希表    for _, partitionIndex := range selectedPartitions {        hashTable := make(map[string]string)        for _, record := range partitions[partitionIndex] {            hashTable[record.Key] = record.Value        }        hashTables[partitionIndex] = hashTable    }​    // 第九步：读取表B，使用位图向量进行过滤    filteredB := make([]Record, 0, len(b))    for i, record := range b {        partitionIndex := hash(record.Key) % numPartitions        if bitmaps[partitionIndex][i] {            filteredB = append(filteredB, record)        }    }​    // 第十步：将过滤后的数据映射到相应的分区，并计算哈希值    for _, record := range filteredB {        partitionIndex := hash(record.Key) % numPartitions        if hashTables[partitionIndex] == nil {            continue        }        value, ok := hashTables[partitionIndex][record.Key]        if ok {            result := join(record.Value, value)            writeResult(result)            continue        }        partitions[partitionIndex] = append(partitions[partitionIndex], record)        hashTables[partitionIndex][record.Key] = record.Value        if len(partitions[partitionIndex])*2 > hashAreaSize() {            writePartition(partitionIndex, partitions[partitionIndex])            partitions[partitionIndex] = nil            hashTables[partitionIndex] = nil            selectedPartitions = selectPartitions(partitions)            for _, partitionIndex := range selectedPartitions {                hashTable := make(map[string]string)                for _, record := range partitions[partitionIndex] {                    hashTable[record.Key] = record.Value                }                hashTables[partitionIndex] = hashTable            }            bitmaps = make([][]bool, numPartitions)            for i := range bitmaps {                bitmaps[i] = make([]bool, len(b))            }            for i, record := range b {                partitionIndex := hash(record.Key) % numPartitions                bitmaps[partitionIndex][i] = true            }            filteredB = make([]Record, 0, len(b))            for i, record := range b {                partitionIndex := hash(record.Key) % numPartitions                if bitmaps[partitionIndex][i] {                    filteredB = append(filteredB, record)                }            }            for _, record := range filteredB {                partitionIndex := hash(record.Key) % numPartitions                if hashTables[partitionIndex] == nil {                    continue                }                value, ok := hashTables[partitionIndex][record.Key]                if ok {                    result := join(record.Value, value)                    writeResult(result)                    continue                }                partitions[partitionIndex] = append(partitions[partitionIndex], record)                hashTables[partitionIndex][record.Key] = record.Value            }            continue        }    }​    // 第十三步：读取(Si,Bi)进行哈希连接，可能发生动态角色互换​    // 第十四步：如果分区后最小的分区仍大于内存，则进行嵌套循环哈希连接​    fmt.Println("算法执行完毕")}​func readTable(filename string) ([]Record, error) {    file, err := os.Open(filename)    if err != nil {        return nil, err    }    defer file.Close()​    reader := bufio.NewReader(file)​    var records []Record​    for {        line, err := reader.ReadString('\n')        if err != nil && err != io.EOF {            return nil, err        }        if line == "" && err == io.EOF {            break        }​        parts := strings.Split(strings.TrimSpace(line), ",")        if len(parts) != 2 {            return nil, fmt.Errorf("invalid format: %s", line)        }​        records = append(records, Record{Key: parts[0], Value: parts[1]})    }​    return records, nil}​func canMemoryHashJoin(s []Record) bool {    return len(s)*2 <= hashAreaSize()}​func memoryHashJoin(s []Record, b []Record) []string {    result := make([]string, 0)​    sMap := make(map[string]string)    for _, record := range s {        sMap[record.Key] = record.Value    }​    for _, record := range b {        if value, ok := sMap[record.Key]; ok {            result = append(result, join(record.Value, value))        }    }​    return result}​func decideNumPartitions(s []Record) int {    clusterSize := dbBlockSize() * hashMultiblockIOCount()    fAvailMem := 0.8 // 假设可用内存为总内存的80%    hashAreaSize := hashAreaSize()    return int(float64(hashAreaSize) / float64(clusterSize*fAvailMem))}​func hash(key string) int {    h := fnv.New32a()    h.Write([]byte(key))    return int(h.Sum32())}​func dbBlockSize() int64 {    return 8192 // 假设为8KB}​func hashMultiblockIOCount() int64 {    return 8 // 假设为8块IO操作同时进行}​func hashAreaSize() int {    return 1024 * 1024 * 1024 // 假设为1GB}​func writePartition(partitionIndex int, partition []Record) error {    filename := fmt.Sprintf("partition_%d.txt", partitionIndex)    file, err := os.Create(filename)    if err != nil {        return err    }    defer file.Close()​    writer := bufio.NewWriter(file)​    for _, record := range partition {        line := fmt.Sprintf("%s,%s\n", record.Key, record.Value)        _, err := writer.WriteString(line)        if err != nil {            return err        }    }​    return writer.Flush()}​func selectPartitions(partitions [][]Record) []int {    type partitionInfo struct {        index int        size  int    }​    infos := make([]partitionInfo, len(partitions))    for i, partition := range partitions {        infos[i].index = i        infos[i].size = len(partition)    }​    selectedInfos := make([]partitionInfo, 0)    sizeSum := 0​    for sizeSum < hashAreaSize()/2 && len(infos) > 0 {        maxInfoIndex := 0​        for i := 1; i < len(infos); i++ {            if infos[i].size > infos[maxInfoIndex].size {                maxInfoIndex = i            }        }​        selectedInfos = append(selectedInfos, infos[maxInfoIndex])        sizeSum += infos[maxInfoIndex].size​        infos[maxInfoIndex], infos[len(infos)-1] = infos[len(infos)-1], infos[maxInfoIndex]        infos = infos[:len(infos)-1]    }​    result := make([]int, len(selectedInfos))    for i, info := range selectedInfos {        result[i] = info.index    }​    return result}​func join(value1 string, value2 string) string {    return value1 + "," + value2 + "\n"}​func writeResult(result string) error {    file, err := os.OpenFile("result.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)    if err != nil {        return err    }    defer file.Close()​    writer := bufio.NewWriter(file)​    _, err = writer.WriteString(result)    if err != nil {        return err    }​    return writer.Flush()}go
 * 范围区间数量
 
 首先在二级索引中根据条件查数据的IO成本，一般是看查询条件涉及到几个范围，比如某个字段涉及到两个区间，那么就是两个范围，如果是等值查询就只有一个范围区间，
@@ -148,14 +148,14 @@ MySQL的优化器会认为我们写的SQL效率不高，就会对我们写的SQL
 
 ## 子查询优化
 * <u>相关子查询</u>:
-子查询中的执行依赖于外层查询的值，该子查询是嵌套在外部的查询的循环中，每次迭代都会执行一次子查询
+  子查询中的执行依赖于外层查询的值，该子查询是嵌套在外部的查询的循环中，每次迭代都会执行一次子查询
    ~~~sql
   SELECT name
    FROM employees
    WHERE salary > (SELECT AVG(salary) FROM employees WHERE department = employees.department);
    ~~~
 * <u>不相关子查询</u>:
-子查询可以单独运行出结果，不需要依赖于外层的查询,会执行一次，把查询的结果传递给外部查询
+  子查询可以单独运行出结果，不需要依赖于外层的查询,会执行一次，把查询的结果传递给外部查询
   ~~~sql
    SELECT name
    FROM employees
@@ -167,10 +167,11 @@ MySQL的优化器会认为我们写的SQL效率不高，就会对我们写的SQL
    FROM employees e
    JOIN (SELECT AVG(salary) as avg_salary FROM employees) avg
    ON e.salary > avg.avg_salary;
-   ~~~
+  ~~~
   
+
 <u>不相关子查询到效率比相关子查询的效率要高</u>
-  
+
 通常情况下`JOIN查询`比`子查询`要来的高效
 - **优化器优化**：db通常会更好的优化 `JOIN`操作，选择更加高效的`执行计划`，包括选择正确的连接方式（内连接，外连接，自连接）,以及正确的使用索引 
 - **只执行一次子查询**:在使用`JOIN`的情况下，只使用一次子查询，而后将结果存储在`内存或临时表`中，而不是在每一行外部查询上执行，
@@ -203,8 +204,8 @@ MySQL的优化器会认为我们写的SQL效率不高，就会对我们写的SQL
    SELECT o.order_id, c.name
    FROM orders o
    LEFT JOIN customers c ON o.customer_id = c.customer_id WHERE c.customer_id is not null;
-    ~~~
-    
+   ~~~
+   
 
 
 
@@ -238,7 +239,6 @@ MySQL的优化器会认为我们写的SQL效率不高，就会对我们写的SQL
       WHERE item_id = 100
    ) i ON o.order_id = i.order_id;
    ~~~
-
 
 
 
