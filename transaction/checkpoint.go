@@ -3,7 +3,7 @@ package transaction
 import (
 	"math"
 	fm "miniSQL/file_manager"
-	lg "miniSQL/logManager"
+	lg "miniSQL/log_manager"
 )
 
 /*

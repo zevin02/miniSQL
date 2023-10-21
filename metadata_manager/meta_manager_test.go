@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	bm "miniSQL/buffer_manager"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 	rm "miniSQL/record_manager"
 	tx "miniSQL/transaction"
 	"os"

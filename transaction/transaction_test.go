@@ -5,7 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	bm "miniSQL/buffer_manager"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 	"testing"
 )
 

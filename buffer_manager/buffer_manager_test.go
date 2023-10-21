@@ -3,7 +3,7 @@ package buffer_manager
 import (
 	"github.com/stretchr/testify/assert"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 	"os"
 	"testing"
 	"time"

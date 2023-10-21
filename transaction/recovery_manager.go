@@ -3,7 +3,7 @@ package transaction
 import (
 	bm "miniSQL/buffer_manager"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 )
 
 //RecoveryManager 该对象的产生一定伴随这一个事务的出现,同时也是由这个对象来产生事务中的日志信息,这个可以实现事务redo log和undo log(顺序从底上上面就是undo 恢复)

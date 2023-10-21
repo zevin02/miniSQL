@@ -5,7 +5,7 @@ import (
 	"fmt"
 	bm "miniSQL/buffer_manager"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 	"sync"
 )
 
@@ -54,7 +54,7 @@ func NewTransaction(fileManager *fm.FileManager, logManager *lm.LogManager, buff
 //Commit 将当前的事务进行提交,并把当前数据刷盘
 func (t *Transaction) Commit() {
 	//在commit之前把锁给释放掉，收缩阶段(事务必须锁，事务不能在获得锁)的，严格两阶段锁
-	t.concurrentMgr.Realse()
+	t.concurrentMgr.Release()
 	err := t.recoverManager.Commit()
 	if err != nil {
 		return
@@ -71,7 +71,7 @@ func (t *Transaction) RollBack() error {
 	if err != nil {
 		return err
 	}
-	t.concurrentMgr.Realse() //回滚的时候也需要释放锁
+	t.concurrentMgr.Release() //回滚的时候也需要释放锁
 	r := fmt.Sprintf("transaction %d roll back", t.txNum)
 	fmt.Println(r)
 

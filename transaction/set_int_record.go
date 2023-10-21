@@ -3,7 +3,7 @@ package transaction
 import (
 	"fmt"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 )
 
 //<SETSTRING, 2, testfile, 1, 40, one, one!>

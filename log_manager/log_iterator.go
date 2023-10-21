@@ -1,4 +1,4 @@
-package logManager
+package log_manager
 
 import (
 	fm "miniSQL/file_manager"

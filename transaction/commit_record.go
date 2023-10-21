@@ -3,7 +3,7 @@ package transaction
 import (
 	"fmt"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 )
 
 /*
@@ -25,7 +25,7 @@ import (
 */
 type CommitRecord struct {
 	txNum uint64 //事务号码
-	//logManager *lm.LogManager //日志管理器
+	//log_manager *lm.LogManager //日志管理器
 }
 
 //NewCommitRecord 开头的8字节是对应的日志的类型，接下来的8字节对应事务序列号

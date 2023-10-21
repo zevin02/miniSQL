@@ -5,7 +5,7 @@ import (
 	"errors"
 	"miniSQL/container"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 	"sync"
 	"time"
 )

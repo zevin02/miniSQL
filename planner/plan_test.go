@@ -6,7 +6,7 @@ import (
 	bm "miniSQL/buffer_manager"
 	"miniSQL/comm"
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 	mm "miniSQL/metadata_manager"
 	"miniSQL/query"
 	rm "miniSQL/record_manager"

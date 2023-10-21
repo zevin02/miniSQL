@@ -23,6 +23,7 @@ func TestHashJoin(t *testing.T) {
 		{Key: 4, Data: "d"},
 		{Key: 5, Data: "e"},
 	}
+
 	//驱动表在内存中的buffer中构建成一个哈希表和布隆过滤器,被驱动表不需要得到其的哈希表和布隆过滤器，直接进行将两者进行比对即可
 	// 分区操作
 	numPartitions := 2                         //分了两个分区

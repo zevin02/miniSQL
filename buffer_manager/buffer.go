@@ -2,7 +2,7 @@ package buffer_manager
 
 import (
 	fm "miniSQL/file_manager"
-	lm "miniSQL/logManager"
+	lm "miniSQL/log_manager"
 	"sync"
 )
 

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/twmb/murmur3"
+	"hash"
 	"sort"
 	"sync"
 )
@@ -13,6 +14,8 @@ type Record struct {
 	Key  int
 	Data string
 }
+
+var h hash.Hash64
 
 // 分区操作,传入需要分区的数据，以及需要分多少个区,传出的就是各个分区的结果
 func partition(records []Record, numPartitions int) [][]Record {
@@ -25,12 +28,12 @@ func partition(records []Record, numPartitions int) [][]Record {
 	//先进行数据的分区
 	return partitions
 }
+
 func getHashValue(key int) uint64 {
 
-	hash := murmur3.New64()
 	newData := encoded(uint32(key)) //先把当前的key转化成字符数组的形式
-	hash.Write(newData)
-	newHashValue := hash.Sum64()
+	h.Write(newData)
+	newHashValue := h.Sum64()
 
 	return newHashValue
 }
@@ -38,6 +41,7 @@ func getHashValue(key int) uint64 {
 // 构建哈希表,为各个分区分别构造哈希表，以及bloom filter表，加快不存在数据的排查
 //map中的key就是当前的记录的连接key，value就是当前对应的记录,
 func buildHash(records []Record) (map[uint64]Record, *bloom.BloomFilter) {
+	h = murmur3.New64()
 	hashTable := make(map[uint64]Record) //key是这个哈希值，value就是他的这条记录
 	filter := bloom.NewWithEstimates(1000000, 0.01)
 	for _, record := range records {
@@ -56,6 +60,7 @@ func encoded(key uint32) []byte {
 
 // 探测操作,在r分区中，使用s分区已经构造好了的哈希表进行探测,把被驱动表的布隆过滤器提取上来进行检测
 //从被驱动表中的一条一条的记录，读取,往管道中发送数据
+//go中的map不支持并发的读取和写入
 func probe(drivenTable []Record, driverHashTable map[uint64]Record, driverBloomFilter *bloom.BloomFilter, wg *sync.WaitGroup, resultCh chan<- []Record) {
 	defer wg.Done()
 	var result []Record
@@ -84,6 +89,7 @@ func probe(drivenTable []Record, driverHashTable map[uint64]Record, driverBloomF
 func HashJoin(drivenPartions [][]Record, driverHashTable []map[uint64]Record, driverBloomFilter []*bloom.BloomFilter) []Record {
 	var result []Record //汇总所有符合条件的结果
 	var wg sync.WaitGroup
+	h = murmur3.New64()
 	resultCh := make(chan []Record, len(drivenPartions)) //多个线程同时向一个管道中发送数据
 	for partionIndex, partion := range drivenPartions {
 		wg.Add(1)

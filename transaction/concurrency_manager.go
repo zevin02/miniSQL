@@ -60,8 +60,8 @@ func (c *ConcurrencyManager) hashXLock(blk *fm.BlockId) bool {
 	return ok && lockType == "X"
 }
 
-//Realse 对所有区块的锁，全部释放，两阶段，释放阶段
-func (c *ConcurrencyManager) Realse() {
+//Release 对所有区块的锁，全部释放，两阶段，释放阶段
+func (c *ConcurrencyManager) Release() {
 	//遍历所有的blk块
 	for blk, _ := range c.lockMap {
 		c.lockTable.UnLock(&blk)

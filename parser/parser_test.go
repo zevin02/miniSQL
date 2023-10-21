@@ -68,7 +68,6 @@ func TestInsert(t *testing.T) {
 	parser := NewSQLParser(sql)
 	it, _ := parser.UpdateCmd()
 	it = it.(*InsertData)
-
 }
 
 func TestView(t *testing.T) {
@@ -102,7 +101,6 @@ func TestDelete(t *testing.T) {
 	it, _ := parser.UpdateCmd()
 	dd := it.(*DeleteData)
 	assert.NotNil(t, dd)
-
 }
 
 func TestUpdate(t *testing.T) {
