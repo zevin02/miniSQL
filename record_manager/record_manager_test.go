@@ -11,6 +11,7 @@ import (
 	"testing"
 )
 
+//
 func TestRecordPage(t *testing.T) {
 	fmgr, _ := fm.NewFileManager("/home/zevin/record_test", 400)
 	lmgr, _ := lm.NewLogManager(fmgr, "logfile")
