@@ -1,6 +1,6 @@
 # What is miniSQL?
 
-**miniSQL** is intended to build a high-performance relational database implemented in Golang. It aims to provide efficient data querying, using **B+ trees** as the storage engine. It supports various SQL operations, including equi-join and common data manipulation statements ( **CREATE**, **SELECT**, **DELETE**, **UPDATE**). Additionally, **miniSQL** provides support for `view`, `index`, and `transaction`, using a unified interface design for enhanced system flexibility and maintainability. Test coverage reaches 74%.
+**MiniSQL** is crafted to create a high-performance relational database implemented in Golang. It strives to facilitate efficient data querying, employing **B+ trees** as the storage engine, and an executor based on the **Volcano Model**. It supports various SQL operations, including equi-join and common data manipulation statements ( **CREATE**, **SELECT**, **DELETE**, **UPDATE**). Additionally, **miniSQL** provides support for `view`, `index`, and `transaction`, using a unified interface design for enhanced system flexibility and maintainability. Test coverage reaches 74%.
 
 # Architecture
 
