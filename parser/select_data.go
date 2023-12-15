@@ -2,6 +2,14 @@ package parser
 
 import "miniSQL/query"
 
+/*
+	SQL解析完之后，会创建一个QueryData对象，我们接下来就是需要根据这个对象构建出合适的查询规划器Planner
+	采取从简单到复杂的原则，首先我们直接构建QueryData的信息去构建查询规划对象，此时我们不用考虑他构造出来的查询树是否足够优化
+	慢慢改进算法，直到构建出一个足够优秀的查询树
+
+	在笛卡尔积中每一条记录都和另一个表中的所有记录进行合并匹配
+*/
+
 //QueryData 保存query查询解析出来的结果,在预处理器在中会对这里面的字段和表进行检查是否存在
 type QueryData struct {
 	fields []string

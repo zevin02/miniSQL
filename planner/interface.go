@@ -1,6 +1,10 @@
 package planner
 
-import rm "miniSQL/record_manager"
+import (
+	"miniSQL/parser"
+	rm "miniSQL/record_manager"
+	tx "miniSQL/transaction"
+)
 
 const (
 	cpuCost float64 = 0.2
@@ -21,4 +25,8 @@ type Plan interface {
 	DistinctValues(fldName string) int //V(s,F)
 	Schema() rm.SchemaInterface        //获得表结构
 	Cost() float64                     //当前过程的一个开销
+}
+
+type QueryPlanner interface {
+	CreatePlan(data *parser.QueryData, tx *tx.Transaction) Plan
 }
