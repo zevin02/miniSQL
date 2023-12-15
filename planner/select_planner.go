@@ -28,10 +28,21 @@ func NewSelectPlan(p Plan, pred *query.Predicate) *SelectPlan {
 //Open 打开当前的selectScan对象
 func (s *SelectPlan) Open() (interface{}, error) {
 	scan, err := s.p.Open() //打开当前的scan对象，可能是tableScan/projectScan
+
 	if err != nil {
 		return nil, err
 	}
-	return query.NewSelectScan(scan.(query.UpdateScan), s.pred), nil //返回当前的selectScan对象
+
+	//如果调用Scan对象，直接调用其Scan内部对象的接口，如果当前调用的是UpdateScan的接口，那么什么都不用做
+	updateScan, ok := scan.(query.UpdateScan) //将当前强制类型转化，看是否能转化成功
+	if !ok {
+		//不能，说明当前获得的是Scan类型的对象，所以需要将他进行转化成UpdateScan类型的对象
+		//传入一个scan类型的变量来初始化updateScanWrapper
+		updateScanWrapper := query.NewUpdateScanWrapper(scan.(query.Scan))
+		return query.NewSelectScan(updateScanWrapper, s.pred), nil
+	}
+	//selectScan结构体在初始化的时候，我们需要传入updateScan接口对象，但是很多时候，我们需要传入的是Scan对象，所以我们需要进行转化，如果传入的是Scan的话，我们就需要将他封装成UPdateScan接口对象
+	return query.NewSelectScan(updateScan, s.pred), nil //返回当前的selectScan对象
 }
 
 //BlockAccessed 当前的SelectPlan的区块访问数量和他底层的Plan相等

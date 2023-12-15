@@ -1,7 +1,7 @@
 
 # What is miniSQL?
 
-**MiniSQL** is crafted to create a high-performance relational database implemented in Golang. It strives to facilitate efficient data querying, employing **B+ trees** as the storage engine, and an executor based on the **Volcano Model**. It supports various SQL operations, including equi-join and common data manipulation statements ( **CREATE**, **SELECT**, **DELETE**, **UPDATE**). Additionally, **miniSQL** provides support for `view`, `index`, and `transaction`, using a unified interface design for enhanced system flexibility and maintainability. Test coverage reaches 74%.
+**MiniSQL** is crafted to create a high-performance relational database implemented in Golang. It strives to facilitate efficient data querying, employing **B+ trees** as the storage engine, and an executor based on the **Volcano Model**. It supports various SQL operations, including equi-join and common data manipulation statements ( **CREATE**, **SELECT**, **DELETE**, **UPDATE**,`JOIN`). Additionally, **miniSQL** provides support for `view`, `index`, and `transaction`, using a unified interface design for enhanced system flexibility and maintainability. Test coverage reaches 74%.
 
 # Architecture
 
@@ -9,7 +9,7 @@
 
 # Features
 
-- Support relational algebra operations such as `SELECT`, `PROJECT`, and `PRODUCT`.
+- Support relational algebra operations such as `SELECT`, `PROJECT`, and `PRODUCT`,`JOIN`.
 - **Parser**: Perform `lexical` and `syntax analysis` of SQL, ensuring semantic accuracy. Constructs the `SQL syntax tree` based on the <u>BNF grammar</u>, supporting context relationships such as `expressions`, `terms`, `constants`, and `predicates`.
 - **Optimizer**: Rewrite and optimizes user SQL queries by evaluating the algebraic cost model for **IO** and **CPU** costs,use `dynamic programming algorithm` to obtain the best join order,selecting the optimal query tree.
 - **Join Operator**: Implements the `Partition Hash Join algorithm` for fast data connections. Utilizes `Bloom Filter` to reduce unnecessary query overhead. Utilizes `Go Routine` and `single-channel` concurrent model for partition query result integration. Additionally, optimizes small table joins with the `Index Block-Nested-Loop-Join algorithm` for improved performance.
