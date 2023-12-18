@@ -51,36 +51,31 @@ func (u *UpdateScanWrapper) Move2Rid(rid rm.RIDInterface) {
 }
 
 func (u *UpdateScanWrapper) BeforeFirst() {
-	//TODO implement me
-	panic("implement me")
+	u.scan.BeforeFirst()
 }
 
 func (u *UpdateScanWrapper) Next() bool {
-	//TODO implement me
-	panic("implement me")
+	return u.scan.Next()
 }
 
 func (u *UpdateScanWrapper) GetInt(fieldName string) int {
-	//TODO implement me
-	panic("implement me")
+	return u.scan.GetInt(fieldName)
 }
 
 func (u *UpdateScanWrapper) GetString(fieldName string) string {
-	//TODO implement me
-	panic("implement me")
+	return u.scan.GetString(fieldName)
 }
 
 func (u *UpdateScanWrapper) GetVal(fieldName string) *comm.Constant {
-	//TODO implement me
-	panic("implement me")
+	return u.scan.GetVal(fieldName)
+
 }
 
 func (u *UpdateScanWrapper) HasField(fieldName string) bool {
-	//TODO implement me
-	panic("implement me")
+	return u.scan.HasField(fieldName)
+
 }
 
 func (u *UpdateScanWrapper) Close() {
-	//TODO implement me
-	panic("implement me")
+	u.scan.Close()
 }

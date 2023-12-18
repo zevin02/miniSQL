@@ -9,6 +9,7 @@ import "miniSQL/comm"
 	处理完的新行数LR*RR，列数是LC+RC
 
 */
+//当前需要让他成为Scan对象的子集
 type ProductScan struct {
 	scan1 Scan //第一张表的查询
 	scan2 Scan //第二张表的查询
@@ -69,7 +70,7 @@ func (p *ProductScan) GetVal(fieldName string) *comm.Constant {
 }
 
 //HashField 如果两张表中有一个满足这个表即可
-func (p *ProductScan) HashField(fieldName string) bool {
+func (p *ProductScan) HasField(fieldName string) bool {
 	return p.scan1.HasField(fieldName) || p.scan2.HasField(fieldName)
 }
 

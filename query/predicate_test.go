@@ -25,7 +25,7 @@ func TestPredicate(t *testing.T) {
 	term2 := NewTerm(expression3, expression4)
 	p2 := NewPredicateWithTerm(term2)
 	p1.ConjoinWith(p2) //将两个表达式结合起来
-	assert.Equal(t, "MajorId=DId and StuId=2", p1.ToString())
+	assert.Equal(t, "MajorId=DId AND StuId=2", p1.ToString())
 	assert.Equal(t, "MajorId", p1.EquatesWithField("DId"))
 	assert.Equal(t, const1, p1.EquatesWithConstant("StuId"))
 

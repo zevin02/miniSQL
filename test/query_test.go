@@ -75,8 +75,8 @@ func TestQuery(t *testing.T) {
 		if projectScan.Next() == true {
 			fmt.Println("found record!")
 			for _, field := range queryData.Fields() {
-				conVal, err := projectScan.GetVal(field)
-				if err != nil {
+				conVal := projectScan.GetVal(field)
+				if conVal == nil {
 					fmt.Println("get val err err ", err)
 				}
 				fmt.Printf("field name %s,its value is %s\n", field, conVal.ToString())

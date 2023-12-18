@@ -1,7 +1,6 @@
 package query
 
 import (
-	"errors"
 	"miniSQL/comm"
 )
 
@@ -26,27 +25,27 @@ func (p *ProjectScan) BeforeFirst() {
 }
 
 //GetInt 取出一个int数,给定的字段必须是用户选择的字段中才可以取出
-func (p *ProjectScan) GetInt(fieldName string) (int, error) {
+func (p *ProjectScan) GetInt(fieldName string) int {
 	//保证当前字段在当前的表中能够得到
 	if p.scan.HasField(fieldName) {
-		return p.scan.GetInt(fieldName), nil
+		return p.scan.GetInt(fieldName)
 	}
-	return 0, errors.New("Field Not Found")
+	return 0
 }
 
-func (p *ProjectScan) GetString(fieldName string) (string, error) {
+func (p *ProjectScan) GetString(fieldName string) string {
 	//保证当前字段在当前的表中能够得到
 	if p.scan.HasField(fieldName) {
-		return p.scan.GetString(fieldName), nil
+		return p.scan.GetString(fieldName)
 	}
-	return "", errors.New("Field Not Found")
+	return ""
 }
 
-func (p *ProjectScan) GetVal(fieldName string) (*comm.Constant, error) {
+func (p *ProjectScan) GetVal(fieldName string) *comm.Constant {
 	if p.scan.HasField(fieldName) {
-		return p.scan.GetVal(fieldName), nil
+		return p.scan.GetVal(fieldName)
 	}
-	return nil, errors.New("Field Not Found")
+	return nil
 }
 
 func (p *ProjectScan) HasField(fieldName string) bool {

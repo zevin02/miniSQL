@@ -25,8 +25,8 @@ func createStudentTable2(tx *tx.Transaction) *mm.MetaDataManager {
 	layout := rm.NewLayoutWithSchema(sch) //获得一行记录的结构
 
 	ts, _ := rm.NewTableScan(tx, "student", layout) //构造一个表
-	ts.BeforeFirst()
-	for i := 0; i <= 3; i++ {
+	ts.BeforeFirst()                                //移动到第一个位置开始进行读取或写入
+	for i := 1; i <= 3; i++ {
 		ts.Insert() //指向一个可用的插槽
 
 		ts.SetInt("id", i)
@@ -80,7 +80,7 @@ func createStudentTable2(tx *tx.Transaction) *mm.MetaDataManager {
 	ts.SetInt("stuid", 3)
 	ts.SetString("exam", "english")
 	ts.SetString("grad", "C")
-	mdm.CreateTable("student", sch, tx) //创建一张exam表，放到meta里面进行管理
+	mdm.CreateTable("student", exam_sch, tx) //创建一张exam表，放到meta里面进行管理
 	return mdm
 }
 
@@ -103,7 +103,8 @@ func TestQueryPlan(t *testing.T) {
 	testPlanner := NewBasicQueryPlan(mdm)             //构造一个BasicQuery对象
 	testPlan := testPlanner.CreatePlan(queryData, tx) //获得执行计划
 	testInterface, _ := testPlan.Open()               //启动执行计划
-	testScan, _ := testInterface.(query.Scan)         //将他转化成Scan类型的对象
+	testScan, ok := testInterface.(query.Scan)        //将他转化成Scan类型的对象
+	println(ok)
 	for testScan.Next() {
 		//调用每个算子的next方法，并输出结果
 		fmt.Printf("name: %s\n", testScan.GetString("name"))
