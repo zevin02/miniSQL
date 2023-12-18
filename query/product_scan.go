@@ -15,6 +15,7 @@ type ProductScan struct {
 	scan2 Scan //第二张表的查询
 }
 
+//在初始化的时候，这个scan1就已经不存在了
 func NewProductScan(s1 Scan, s2 Scan) *ProductScan {
 	p := &ProductScan{
 		scan1: s1,

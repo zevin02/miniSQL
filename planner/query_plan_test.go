@@ -80,7 +80,7 @@ func createStudentTable2(tx *tx.Transaction) *mm.MetaDataManager {
 	ts.SetInt("stuid", 3)
 	ts.SetString("exam", "english")
 	ts.SetString("grad", "C")
-	mdm.CreateTable("student", exam_sch, tx) //创建一张exam表，放到meta里面进行管理
+	mdm.CreateTable("exam", exam_sch, tx) //创建一张exam表，放到meta里面进行管理
 	return mdm
 }
 
