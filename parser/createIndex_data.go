@@ -2,33 +2,33 @@ package parser
 
 import "fmt"
 
-type IndexData struct {
+type CreateIndexData struct {
 	indexName string
 	tableName string
 	fields    []string
 }
 
-func NewIndexData(indexName string, tableName string, fields []string) *IndexData {
-	return &IndexData{
+func NewIndexData(indexName string, tableName string, fields []string) *CreateIndexData {
+	return &CreateIndexData{
 		indexName: indexName,
 		tableName: tableName,
 		fields:    fields,
 	}
 }
 
-func (i *IndexData) IndexName() string {
+func (i *CreateIndexData) IndexName() string {
 	return i.indexName
 }
 
-func (i *IndexData) TableName() string {
+func (i *CreateIndexData) TableName() string {
 	return i.tableName
 }
 
-func (i *IndexData) FieldName() []string {
+func (i *CreateIndexData) FieldName() []string {
 	return i.fields
 }
 
-func (i *IndexData) ToString() string {
+func (i *CreateIndexData) ToString() string {
 	str := fmt.Sprintf("index name :%s ,table name %s,field name %v", i.indexName, i.tableName, i.fields)
 	return str
 }

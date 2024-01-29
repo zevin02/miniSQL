@@ -2,28 +2,29 @@ package parser
 
 import "fmt"
 
-type ViewData struct {
+//CreateViewData 创建一个视图
+type CreateViewData struct {
 	viewName  string
 	queryData *QueryData
 }
 
-func NewViewData(viewName string, queryData *QueryData) *ViewData {
-	return &ViewData{
+func NewViewData(viewName string, queryData *QueryData) *CreateViewData {
+	return &CreateViewData{
 		viewName:  viewName,
 		queryData: queryData,
 	}
 }
 
-func (v *ViewData) ViewName() string {
+func (v *CreateViewData) ViewName() string {
 	return v.viewName
 }
 
 //ViewDef 获得创建这张表的定义语句
-func (v *ViewData) ViewDef() string {
+func (v *CreateViewData) ViewDef() string {
 	return v.queryData.ToString()
 }
 
-func (v *ViewData) ToString() string {
+func (v *CreateViewData) ToString() string {
 	s := fmt.Sprintf("view name : %s,view def :%s\n", v.viewName, v.ViewDef())
 	return s
 }

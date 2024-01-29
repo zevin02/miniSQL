@@ -18,3 +18,15 @@ func NewInsertData(tblName string, fields []string, values []*comm.Constant) *In
 		values:    values,
 	}
 }
+
+func (d *InsertData) TableName() string {
+	return d.tableName
+}
+
+func (d *InsertData) Fields() []string {
+	return d.fields
+}
+
+func (d *InsertData) Vals() []*comm.Constant {
+	return d.values
+}

@@ -2,6 +2,7 @@ package parser
 
 import "miniSQL/query"
 
+//DeleteData 这个语法树中记录的delete的SQL语句
 type DeleteData struct {
 	tblName string           //删除的表
 	pred    *query.Predicate //删除的条件

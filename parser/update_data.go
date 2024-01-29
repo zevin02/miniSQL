@@ -4,6 +4,7 @@ import (
 	"miniSQL/query"
 )
 
+//UpdateData 这个语法树中记录的就是需要进行update的SQL语句
 type UpdateData struct {
 	tableName string
 	fieldName string

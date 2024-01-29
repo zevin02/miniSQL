@@ -53,7 +53,7 @@ func TestCreate(t *testing.T) {
 	sql := "CREATE TABLE PERSRON (PERSONID INT, LASTNAME VARCHAR(255),FIRSTNAME VARCHAR(255),ADDRESS INT)"
 	parser := NewSQLParser(sql)
 	tbdt, _ := parser.UpdateCmd()
-	i := tbdt.(*TableData) //将该接口类型进行类型转化
+	i := tbdt.(*CreateTableData) //将该接口类型进行类型转化
 	assert.NotNil(t, i)
 	assert.Equal(t, "PERSRON", i.tableName)
 	fields := i.schema.Fields()
@@ -75,13 +75,13 @@ func TestView(t *testing.T) {
 	sql := "CREATE VIEW employeeview AS SELECT employeeid, firstname, lastname, salary FROM employees WHERE salary = 50000"
 	parser := NewSQLParser(sql)
 	it, _ := parser.UpdateCmd()
-	dd := it.(*ViewData)
+	dd := it.(*CreateViewData)
 	assert.NotNil(t, dd)
 	fmt.Println(dd.ToString())
 	sql2 := "CREATE VIEW Customer AS SELECT CustomerName, ContactName FROM customers WHERE country=\"China\""
 	sqlParser := NewSQLParser(sql2)
 	dit, _ := sqlParser.UpdateCmd()
-	dd2 := dit.(*ViewData)
+	dd2 := dit.(*CreateViewData)
 	assert.NotNil(t, dd2)
 	fmt.Println(dd2.ToString())
 }
@@ -90,7 +90,7 @@ func TestIndex(t *testing.T) {
 	sql := "CREATE INDEX indexName ON PERSON (LASTNAME,FIRST)"
 	parser := NewSQLParser(sql)
 	it, _ := parser.UpdateCmd()
-	dd := it.(*IndexData)
+	dd := it.(*CreateIndexData)
 	fmt.Println(dd.ToString())
 }
 
