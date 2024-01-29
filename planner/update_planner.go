@@ -23,8 +23,8 @@ func NewBasicUpdatePlanner(mdm *mm.MetaDataManager) *BasicUpdatePlanner {
 	}
 }
 
-//ExecuteDelte 执行删除操作,返回删除的记录的数量
-func (b *BasicUpdatePlanner) ExecuteDelte(data *parser.DeleteData, tx *tx.Transaction) int {
+//ExecuteDelete 执行删除操作,返回删除的记录的数量
+func (b *BasicUpdatePlanner) ExecuteDelete(data *parser.DeleteData, tx *tx.Transaction) int {
 	//首先要先把要删除的记录给扫描出来
 	//构造一个表查询计划
 	tablePlan, err := NewTablePlan(tx, data.TableName(), b.mdm) //这个tableplan主要是用来打开底层的数据库的
