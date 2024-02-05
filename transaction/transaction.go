@@ -100,7 +100,7 @@ func (t *Transaction) Pin(blk *fm.BlockId) error {
 }
 
 func (t *Transaction) Unpin(blk *fm.BlockId) error {
-	t.myBuffers.Unpin(blk) //调用pin进行管理
+	t.myBuffers.Unpin(*blk) //调用pin进行管理
 	return nil
 }
 
@@ -115,7 +115,7 @@ func (t *Transaction) bufferNoExist(blk *fm.BlockId) error {
 //读取数据,直接让强转(int64)
 func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) (int64, error) {
 	//读取数据的时候，调用同步管理器加s类型的锁,加锁的数据范围要尽可能小
-	err := t.concurrentMgr.SLock(blk) //加上共享锁
+	err := t.concurrentMgr.SLock(*blk) //加上共享锁
 	if err != nil {
 		return -1, err
 	}
@@ -132,7 +132,7 @@ func (t *Transaction) GetInt(blk *fm.BlockId, offset uint64) (int64, error) {
 //GetString 从事务中的某个区块的文件中读取数据
 func (t *Transaction) GetString(blk *fm.BlockId, offset uint64) (string, error) {
 	//调用同步管理器加s锁
-	err := t.concurrentMgr.SLock(blk)
+	err := t.concurrentMgr.SLock(*blk)
 	if err != nil {
 		return "", err
 	} //加上共享锁
@@ -147,7 +147,7 @@ func (t *Transaction) GetString(blk *fm.BlockId, offset uint64) (string, error) 
 //SetInt okToLog=true会生成记录，为false就不会生成对应的记录
 func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog bool) error {
 	//使用并发管理器加上排他锁
-	err := t.concurrentMgr.XLock(blk)
+	err := t.concurrentMgr.XLock(*blk)
 	//如果当前出错的话，就有可能出现死锁，就需要进行回滚，把所有当前的锁给解开
 	if err != nil {
 		return err
@@ -181,7 +181,7 @@ func (t *Transaction) SetInt(blk *fm.BlockId, offset uint64, val int64, okToLog 
 func (t *Transaction) SetString(blk *fm.BlockId, offset uint64, val string, okToLog bool) error {
 	//调用同步管理器的x锁
 	//在写入的时候使用并发管理器加上排他锁
-	err := t.concurrentMgr.XLock(blk)
+	err := t.concurrentMgr.XLock(*blk)
 	if err != nil {
 		return err
 	}
@@ -211,9 +211,9 @@ func (t *Transaction) SetString(blk *fm.BlockId, offset uint64, val string, okTo
 //Size 获得当前文件占据了多少个block
 //Size和Append操作是互斥的操作，读写互斥
 func (t *Transaction) Size(filename string) (uint64, error) {
-	//读取当前文件的大小的时候，也是需要调用S锁，共享
+	//读取当前文件的大小的时候，也是需要调用S锁，共享,给当前的文件随机生成一个区块
 	dummyBlk := fm.NewBlockId(filename, uint64(END_OF_FILE)) //构造一个虚拟的BlockId来进行管理
-	err := t.concurrentMgr.SLock(dummyBlk)
+	err := t.concurrentMgr.SLock(*dummyBlk)
 	//给这个文件区块加共享锁
 	if err != nil {
 		return 0, err
@@ -227,7 +227,7 @@ func (t *Transaction) Size(filename string) (uint64, error) {
 func (t *Transaction) Append(filename string) (*fm.BlockId, error) {
 	//调用一个X锁
 	dummyBlk := fm.NewBlockId(filename, END_OF_FILE) //构造一个虚拟的BlockId来进行管理
-	err := t.concurrentMgr.XLock(dummyBlk)
+	err := t.concurrentMgr.XLock(*dummyBlk)
 	if err != nil {
 		return nil, err
 	} //给这个文件区块加共享锁

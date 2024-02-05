@@ -18,16 +18,16 @@ func NewConcurrencyManager() *ConcurrencyManager {
 	}
 }
 
-//SLock 上共享锁,由于SLock当前的slock只是针对当前的对象来说,如果当前对象已经
-func (c *ConcurrencyManager) SLock(blk *fm.BlockId) error {
-	_, ok := c.lockMap[*blk] //在当前事务对应的锁中查看是否使用该区块
+//SLock 上共享锁,由于SLock当前的slock只是针对当前的对象来说,如果当前对象已经, todo 将这里的指针全部改成对象
+func (c *ConcurrencyManager) SLock(blk fm.BlockId) error {
+	_, ok := c.lockMap[blk] //在当前事务对应的锁中查看是否使用该区块
 	if !ok {
 		//当前事务对象并没有占用该区块,所以可以去获得
 		err := c.lockTable.Slock(blk) //获得该锁，如果里面有X锁的话，也会停止
 		if err != nil {
 			return err
 		}
-		c.lockMap[*blk] = "S" //当前该区块获得的是S锁
+		c.lockMap[blk] = "S" //当前该区块获得的是S锁
 	}
 	//当前事务对blk区块已经占用了锁，读和写操作都可以
 	return nil
@@ -35,7 +35,7 @@ func (c *ConcurrencyManager) SLock(blk *fm.BlockId) error {
 }
 
 //XLock 上排他锁
-func (c *ConcurrencyManager) XLock(blk *fm.BlockId) error {
+func (c *ConcurrencyManager) XLock(blk fm.BlockId) error {
 	//如果当前有X锁存在的话，就无法访问
 	if !c.hashXLock(blk) {
 		c.SLock(blk) //保证了读锁的值=1
@@ -49,14 +49,14 @@ func (c *ConcurrencyManager) XLock(blk *fm.BlockId) error {
 		if err != nil {
 			return err
 		}
-		c.lockMap[*blk] = "X" //当前该区块获得的是S锁
+		c.lockMap[blk] = "X" //当前该区块获得的是S锁
 	} //如果当前对象已经获得了该区块的X锁的话，就可以直接使用，如果没有X锁的话，就需要去申请得到
 	return nil
 }
 
 //hashXLock 判断当前是否有X锁
-func (c *ConcurrencyManager) hashXLock(blk *fm.BlockId) bool {
-	lockType, ok := c.lockMap[*blk]
+func (c *ConcurrencyManager) hashXLock(blk fm.BlockId) bool {
+	lockType, ok := c.lockMap[blk]
 	return ok && lockType == "X"
 }
 
@@ -64,7 +64,7 @@ func (c *ConcurrencyManager) hashXLock(blk *fm.BlockId) bool {
 func (c *ConcurrencyManager) Release() {
 	//遍历所有的blk块
 	for blk, _ := range c.lockMap {
-		c.lockTable.UnLock(&blk)
+		c.lockTable.UnLock(blk)
 		//把当前事务的lockmap释放掉,
 		delete(c.lockMap, blk)
 	}

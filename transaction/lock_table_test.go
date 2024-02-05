@@ -23,7 +23,7 @@ func TestLockTableWithSLockAfterXLockRelease(t *testing.T) {
 	var err_array []error         //收集各个线程中的错误消息
 	var err_array_lock sync.Mutex //对该错误队列加锁
 	lockTable := NewLockTable()
-	lockTable.Xlock(blk)  //使用互斥锁，将这个区块占用
+	lockTable.Xlock(*blk) //使用互斥锁，将这个区块占用
 	var wg sync.WaitGroup //等待所有线程完成
 
 	for i := 0; i < 3; i++ {
@@ -34,7 +34,7 @@ func TestLockTableWithSLockAfterXLockRelease(t *testing.T) {
 			defer wg.Done()
 			err_array_lock.Lock()
 			defer err_array_lock.Unlock()
-			err := lockTable.Slock(blk) //使用互斥锁
+			err := lockTable.Slock(*blk) //使用互斥锁
 			if err == nil {
 				fmt.Printf("routine %d access slock ok\n", i)
 			} else {
@@ -44,7 +44,7 @@ func TestLockTableWithSLockAfterXLockRelease(t *testing.T) {
 		}(i)
 	}
 	time.Sleep(1 * time.Second) //让3个线程都跑起来
-	lockTable.UnLock(blk)       //将blk区块解锁（可能是解锁共享锁，也可能是解锁互斥锁）
+	lockTable.UnLock(*blk)      //将blk区块解锁（可能是解锁共享锁，也可能是解锁互斥锁）
 	//这里解锁，就会把所有的线程给唤醒
 	start := time.Now()
 	wg.Wait()                              //等待3个线程完成

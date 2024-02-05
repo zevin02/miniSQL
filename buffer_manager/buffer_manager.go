@@ -174,7 +174,7 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 		//得到了缓存页
 		buffer := cacheItem.(*Buffer)
 
-		buffer.Pin() //增加引用计数，获得到之后，就需要增加引用计数，把当前page占用了
+		buffer.Pin() //增加引用计数，获得到之后，就需要增加引用计数，把当前page占用了，TODO 检测如果是同一个线程多次pin同一个区块的话，引用计数会不会增加
 		return buffer
 	}
 	//LRU缓存中不存在，尝试从buffer pool中获取

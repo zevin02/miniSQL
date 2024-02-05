@@ -83,7 +83,7 @@ func (t *TableManager) CreateTable(tblName string, schema *rm.Schema, tx *tx.Tra
 	return nil
 }
 
-//GetLayout 获得给定表的Layout结构
+//GetLayout 获得给定表的Layout结构,从当前的tblcat和fldcat中获得某个具体表的表结构（tblcat表中存储的就是当前表的表名和一个记录的大小，fldcat存储的就是当前的表的各种字段信息）
 func (t *TableManager) GetLayout(tblName string, tx *tx.Transaction) (*rm.Layout, error) {
 	size := -1
 	//从tblcat获得表中一条记录的长度

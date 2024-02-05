@@ -6,11 +6,15 @@ import (
 	bm "miniSQL/buffer_manager"
 	fm "miniSQL/file_manager"
 	lm "miniSQL/log_manager"
+	"os"
 	"testing"
 )
 
 func TestTransaction(t *testing.T) {
 	fmgr, err := fm.NewFileManager("/home/zevin/transaction_test", 400)
+	defer func() {
+		os.RemoveAll("/home/zevin/transaction_test")
+	}()
 	lmgr, err := lm.NewLogManager(fmgr, "logfile")
 	assert.Nil(t, err)
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 3) //开辟一个缓存管理器，内存池,供使用
@@ -69,6 +73,9 @@ func TestTransaction(t *testing.T) {
 
 func TestTransaction_AvailableBuffer(t *testing.T) {
 	fmgr, err := fm.NewFileManager("/home/zevin/transaction_test", 400)
+	defer func() {
+		os.RemoveAll("/home/zevin/transaction_test")
+	}()
 	lmgr, err := lm.NewLogManager(fmgr, "logfile")
 	assert.Nil(t, err)
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 3)

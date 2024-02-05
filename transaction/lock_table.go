@@ -47,39 +47,41 @@ func GetLockTableInstance() *LockTable {
 }
 
 //initWaitingOnBlk 给某个区块进行初始化,如果已经初始化就不用管，没有初始化就需要进行初始化
-func (l *LockTable) initWaitingOnBlk(blk *fm.BlockId) {
+func (l *LockTable) initWaitingOnBlk(blk fm.BlockId) {
 	//如果某个区块没有初始化过的话，就需要进行初始化
-	_, ok := l.notifyChan[*blk]
+	_, ok := l.notifyChan[blk]
 	if !ok {
-		l.notifyChan[*blk] = make(chan struct{})
+		l.notifyChan[blk] = make(chan struct{}) //给当前区块创建管道用来通信
 	}
 
-	_, ok = l.notifyWg[*blk]
+	//给当前区块创建一个通信集合
+	_, ok = l.notifyWg[blk]
 	if !ok {
-		l.notifyWg[*blk] = &sync.WaitGroup{}
+		l.notifyWg[blk] = &sync.WaitGroup{}
 	}
 
 }
 
 //waitGivenTimeOut 等待给定的时间，或者等待信号唤醒
 //下面的两个方法都是在某个方法内部调用的，所以不需要加方法锁
-func (l *LockTable) waitGivenTimeOut(blk *fm.BlockId) {
+func (l *LockTable) waitGivenTimeOut(blk fm.BlockId) {
 	//当有线程去访问某个区块的时候，就会去调用该函数，来sleep一段时间，sleep完后再回来看看是否把锁释放了
-	wg, ok := l.notifyWg[*blk]
+	wg, ok := l.notifyWg[blk]
 	if !ok {
 		//对应的区块，还没有初始化该对象，则进行初始化该对象
 		var newWg sync.WaitGroup
-		l.notifyWg[*blk] = &newWg
+		l.notifyWg[blk] = &newWg
 		wg = &newWg
 	}
 	wg.Add(1)             //将给定区块的计数+1,外面就能知道有多少个线程在访问该区块
 	defer wg.Done()       //访问完之后，就将该区块的计数减1
 	l.methodLock.Unlock() //因为当前已经被挂起了，所以不会访问里面的资源，所以要把这个锁进行释放,这样其他函数就可以进行该操作
+	//两种信号会唤醒这个线程，一个就是当前已经等待超时了，另一个信号就是其他线程已经释放了这个区块的锁，就会通知所有等待该锁的对象进行唤醒
 	select {
 	case <-time.After(MAX_WAITING_TIME * time.Second):
 		//等待超时信号到来
 		fmt.Println("routine wake up for timeout")
-	case <-l.notifyChan[*blk]:
+	case <-l.notifyChan[blk]:
 		//另外获得锁的线程已经操作完了,就会通知所有等待该锁的对象进行唤醒
 		fmt.Println("toutine wake up for notify channel")
 		//default说明这两个都没有，就在sleep
@@ -91,16 +93,16 @@ func (l *LockTable) waitGivenTimeOut(blk *fm.BlockId) {
 }
 
 //notifyAll 唤醒某个区块中所有等待的线程
-func (l *LockTable) notifyAll(blk *fm.BlockId) {
-	s := fmt.Sprintf("close channel for blk :%v", *blk)
+func (l *LockTable) notifyAll(blk fm.BlockId) {
+	s := fmt.Sprintf("close channel for blk :%v", blk)
 	fmt.Println(s)
-	channel, ok := l.notifyChan[*blk] //获得信号
+	channel, ok := l.notifyChan[blk] //获得信号
 	if ok {
 		//当前channel存在
-		close(channel)             //发送信号,给某个线程
-		delete(l.notifyChan, *blk) //在里面删除这个，到时候调用的时候还会创建的
+		close(channel)            //发送信号,给某个线程
+		delete(l.notifyChan, blk) //在里面删除这个，到时候调用的时候还会创建的
 		mark := rand.Intn(10000)
-		s = fmt.Sprintf("delete blk :%v and launch rotinue to create it ,mark :%d\n", *blk, mark)
+		s = fmt.Sprintf("delete blk :%v and launch rotinue to create it ,mark :%d\n", blk, mark)
 		fmt.Println(s)
 		//等待所有线程返回
 		go func(blkUnlock fm.BlockId, ranNum int) {
@@ -110,21 +112,21 @@ func (l *LockTable) notifyAll(blk *fm.BlockId) {
 
 			l.notifyWg[blkUnlock].Wait() //我们需要等待所有线程都执行完之后，重新给该区块初始化一个新的管道，等待所有计数归零
 			l.methodLock.Lock()
-			l.notifyChan[*blk] = make(chan struct{}) //重刑创建管道发送信号
+			l.notifyChan[blk] = make(chan struct{}) //重刑创建管道发送信号
 			l.methodLock.Unlock()
 			s = fmt.Sprintf("create notify channel for %v\n", blkUnlock)
 			fmt.Print(s)
-		}(*blk, mark)
+		}(blk, mark)
 	} else {
 		//当前并不存在
-		s = fmt.Sprintf("channel for %v is already closed\n", *blk)
+		s = fmt.Sprintf("channel for %v is already closed\n", blk)
 		fmt.Print(s)
 	}
 
 }
 
 //Slock (shared lock)共享锁
-func (l *LockTable) Slock(blk *fm.BlockId) error {
+func (l *LockTable) Slock(blk fm.BlockId) error {
 	//这个是外面可以直接调用的，所以需要进行加锁
 	l.methodLock.Lock() //避免出现线程安全的问题
 	defer l.methodLock.Unlock()
@@ -133,6 +135,7 @@ func (l *LockTable) Slock(blk *fm.BlockId) error {
 	//读读不互斥，读写互斥
 	for l.hasXlock(blk) && !l.waitTooLong(start) {
 		//如果当前区块已经有互斥锁，同时等待没有超时
+		//在给定的时间中，如果有唤醒的话，就跳出循环了
 		l.waitGivenTimeOut(blk) //挂起等待给定的时间
 	}
 	//出来之后，再次判断锁是否已经释放了
@@ -150,11 +153,11 @@ func (l *LockTable) Slock(blk *fm.BlockId) error {
 }
 
 //Xlock (exclusive Lock)排他锁
-func (l *LockTable) Xlock(blk *fm.BlockId) error {
+func (l *LockTable) Xlock(blk fm.BlockId) error {
 	//这个是外面可以直接调用的，所以需要进行加锁
 	l.methodLock.Lock() //避免出现线程安全的问题
 	defer l.methodLock.Unlock()
-	l.initWaitingOnBlk(blk)
+	l.initWaitingOnBlk(blk) //同样，当前在使用某个区块，如果当前区块的管道没有创建的话 ，就进行创建，如果已经存在的话，就不需要创建
 	start := time.Now()
 	//读读不互斥，读写互斥,写写互斥
 	for l.hashOtherSlock(blk) && !l.waitTooLong(start) {
@@ -166,45 +169,46 @@ func (l *LockTable) Xlock(blk *fm.BlockId) error {
 		fmt.Println("xlock fail for slock")
 		return errors.New("Xlock Exception:Slock on given blk")
 	}
-	l.lockMap[*blk] = -1 //-1表示互斥锁
+	l.lockMap[blk] = -1 //-1表示互斥锁
 	return nil
 }
 
 //IncSlockWithLock 增加Slock锁的引用计数
-func (l *LockTable) IncSlockWithLock(blk *fm.BlockId) {
+func (l *LockTable) IncSlockWithLock(blk fm.BlockId) {
 	l.methodLock.Lock()
 	defer l.methodLock.Unlock()
 	l.incSlock(blk)
 }
 
-func (l *LockTable) incSlock(blk *fm.BlockId) {
-	val := l.getLockVal(blk)  //拿到锁对应的数值
-	l.lockMap[*blk] = val + 1 //共享锁+1
+func (l *LockTable) incSlock(blk fm.BlockId) {
+	val := l.getLockVal(blk) //拿到锁对应的数值
+	l.lockMap[blk] = val + 1 //共享锁+1
 }
 
-func (l *LockTable) UnLock(blk *fm.BlockId) {
+//UnLock 将某个区块的锁全部释放
+func (l *LockTable) UnLock(blk fm.BlockId) {
 	l.methodLock.Lock() //避免出现线程安全的问题
 	defer l.methodLock.Unlock()
 	//获得该锁对应的数值
 	val := l.getLockVal(blk)
 	if val > 0 {
 		//共享锁
-		l.lockMap[*blk] = val - 1
+		l.lockMap[blk] = val - 1
 	} else {
 		//互斥锁
 		//l.lockMap[blk] = 0 //设置他成为0,都表示他没有锁
-		delete(l.lockMap, *blk) //删除这个元素
-		l.notifyAll(blk)        //互斥锁释放了，给所有等待中的线程发消息
+		delete(l.lockMap, blk) //删除这个元素
+		l.notifyAll(blk)       //互斥锁释放了，给所有等待中的线程发消息
 	}
 }
 
 //hasXlock 判断是否有Xlock加在某个区块上
-func (l *LockTable) hasXlock(blk *fm.BlockId) bool {
+func (l *LockTable) hasXlock(blk fm.BlockId) bool {
 	return l.getLockVal(blk) < 0
 }
 
 //hashOtherSlock 判断是否有其他的事务也使用该读锁,如果=1说明是我们当前事务自己使用的
-func (l *LockTable) hashOtherSlock(blk *fm.BlockId) bool {
+func (l *LockTable) hashOtherSlock(blk fm.BlockId) bool {
 	return l.getLockVal(blk) > 1 //如果=1说明是我们自己得到的
 }
 
@@ -221,10 +225,10 @@ func (l *LockTable) waitTooLong(start time.Time) bool {
 }
 
 //getLockVal 获得某个区块的数值
-func (l *LockTable) getLockVal(blk *fm.BlockId) int64 {
-	val, ok := l.lockMap[*blk]
+func (l *LockTable) getLockVal(blk fm.BlockId) int64 {
+	val, ok := l.lockMap[blk]
 	if !ok {
-		l.lockMap[*blk] = 0
+		l.lockMap[blk] = 0
 		//当前不存在
 		return 0
 	} else {

@@ -9,6 +9,7 @@ import (
 	"miniSQL/parser"
 	"miniSQL/query"
 	tx "miniSQL/transaction"
+	"os"
 	"testing"
 )
 
@@ -34,6 +35,9 @@ func PrintStudentTable(tx *tx.Transaction, mdm *mm.MetaDataManager) {
 //name varchar(16),majorId int,gradyear int
 func CreateInsertUpdateByUpdatePlanner() {
 	fmgr, _ := fm.NewFileManager("/home/zevin/plan_test", 2048)
+	defer func() {
+		os.RemoveAll("/home/zevin/plan_test")
+	}()
 	lmgr, _ := lm.NewLogManager(fmgr, "logfile")
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 3)
 	tx := tx.NewTransaction(fmgr, lmgr, bmgr)
@@ -95,6 +99,7 @@ func CreateInsertUpdateByUpdatePlanner() {
 }
 
 func TestUpdatePlanner(t *testing.T) {
+
 	CreateInsertUpdateByUpdatePlanner()
 
 }
