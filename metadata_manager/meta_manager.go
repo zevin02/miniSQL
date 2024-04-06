@@ -11,24 +11,27 @@ type MetaDataManager struct {
 	viewmgr *ViewManager
 	statmgr *StatManager
 	//索引管理器以后再做处理
+	idxMgr *IndexManager //索引管理器
 }
 
 //NewMetaDataManager 构造一个MetaDataManager对象,isnew=true说明当前的tableManager还没有创建出来，我们需要首先创建出来两张元数据表，同时视图管理器的表也没创建出来，我们也需要进行创建
 func NewMetaDataManager(isNew bool, tx *tx.Transaction) (*MetaDataManager, error) {
 	metaMgr := &MetaDataManager{}
 	var err error
-	metaMgr.tblmgr, err = NewTableManager(isNew, tx)
+	metaMgr.tblmgr, err = NewTableManager(isNew, tx) //表管理器
 	if err != nil {
 		return nil, err
 	}
-	metaMgr.viewmgr, err = NewViewManager(isNew, metaMgr.tblmgr, tx)
+	metaMgr.viewmgr, err = NewViewManager(isNew, metaMgr.tblmgr, tx) //视图管理器
 	if err != nil {
 		return nil, err
 	}
-	metaMgr.statmgr, err = NewStatManager(metaMgr.tblmgr, tx)
+	metaMgr.statmgr, err = NewStatManager(metaMgr.tblmgr, tx) //构造一个统计管理器
 	if err != nil {
 		return nil, err
 	}
+	metaMgr.idxMgr = NewIndexManager(isNew, metaMgr.tblmgr, metaMgr.statmgr, tx) //构造一个索引管理器
+
 	return metaMgr, nil
 }
 
@@ -75,4 +78,14 @@ func (m *MetaDataManager) GetStatInfo(tblname string, layout *rm.Layout, tx *tx.
 		return nil, err
 	}
 	return info, nil
+}
+
+//CreateIndex 通过元数据管理器，就能直接创建一个索引
+func (m *MetaDataManager) CreateIndex(idxName string, tblName string, fieldName string, tx *tx.Transaction) {
+	m.idxMgr.CreateIndex(idxName, tblName, fieldName, tx)
+}
+
+//GetIndexInfo 获得索引的信息
+func (m *MetaDataManager) GetIndexInfo(tableName string, tx *tx.Transaction) map[string]*IndexInfo {
+	return m.idxMgr.GetIndexInfo(tableName, tx)
 }

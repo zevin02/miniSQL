@@ -167,6 +167,7 @@ func (b *BufferManager) waitingTooLong(start time.Time) bool {
 	return false
 }
 
+//TODO 检测如果是同一个线程多次pin同一个区块的话，引用计数会不会增加,在pin的时候，判断当前的事务ID
 //tryPin 尝试去获得一块buffer的数据
 func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 	//从LRU缓存中获得缓存页面
@@ -174,7 +175,7 @@ func (b *BufferManager) tryPin(blk *fm.BlockId) *Buffer {
 		//得到了缓存页
 		buffer := cacheItem.(*Buffer)
 
-		buffer.Pin() //增加引用计数，获得到之后，就需要增加引用计数，把当前page占用了，TODO 检测如果是同一个线程多次pin同一个区块的话，引用计数会不会增加
+		buffer.Pin() //增加引用计数，获得到之后，就需要增加引用计数，把当前page占用了
 		return buffer
 	}
 	//LRU缓存中不存在，尝试从buffer pool中获取

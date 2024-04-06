@@ -75,6 +75,8 @@ func TestMetaDataManager(t *testing.T) {
 }
 func TestMetaDataManager2(t *testing.T) {
 	fmgr, _ := fm.NewFileManager("/home/zevin/meta_test", 400)
+	defer os.RemoveAll("/home/zevin/meta_test")
+
 	lmgr, _ := lm.NewLogManager(fmgr, "logfile")
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 3)
 	tx := tx.NewTransaction(fmgr, lmgr, bmgr)

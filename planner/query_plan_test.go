@@ -85,9 +85,9 @@ func createStudentTable2(tx *tx.Transaction) *mm.MetaDataManager {
 }
 
 func TestQueryPlan(t *testing.T) {
-	fmgr, err := fm.NewFileManager("/home/zevin/plan_test", 2048)
+	fmgr, err := fm.NewFileManager("/home/zevin/query_plan_test", 2048)
 	defer func() {
-		os.RemoveAll("/home/zevin/plan_test")
+		os.RemoveAll("/home/zevin/query_plan_test")
 	}()
 	lmgr, err := lm.NewLogManager(fmgr, "logfile")
 	assert.Nil(t, err)

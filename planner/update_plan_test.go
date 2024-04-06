@@ -41,7 +41,7 @@ func CreateInsertUpdateByUpdatePlanner() {
 	lmgr, _ := lm.NewLogManager(fmgr, "logfile")
 	bmgr := bm.NewBufferManager(fmgr, lmgr, 3)
 	tx := tx.NewTransaction(fmgr, lmgr, bmgr)
-	mdm, _ := mm.NewMetaDataManager(false, tx)
+	mdm, _ := mm.NewMetaDataManager(true, tx)
 
 	//使用这个update接口可以进行增加删除修改操作
 	updatePlanner := NewBasicUpdatePlanner(mdm) //构造一个updatePlanner对象

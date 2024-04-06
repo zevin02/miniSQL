@@ -22,7 +22,7 @@ func NewTableScan(tx *tx.Transaction, tableName string, layout LayoutInterface) 
 		layout:   layout,
 		fileName: tableName + ".tbl", //一个表都存储在".tbl"文件中
 	}
-	size, err := tx.Size(tableScan.fileName) //获得当前文件占用了多少个区块
+	size, err := tx.Size(tableScan.fileName) //获得当前文件占用了多少个区块,在这个函数里面，如果某个表不存在的话，就会传建出来
 	if err != nil {
 		panic(err)
 	}
@@ -87,7 +87,7 @@ func (t *TableScan) Move2Block(blkNum int) {
 	t.Close()                                        //因为要移动到新的区块，所以把之前的给取消使用
 	blk := fm.NewBlockId(t.fileName, uint64(blkNum)) //构造一个新的区块
 	t.rp = NewRecordPage(t.tx, blk, t.layout)        //更新日志管理器,之前日志管理器的
-	t.currentSlot = -1
+	t.currentSlot = -1                               //因为是跳转到某个区块，同时当前一条记录都还没有读取，所以，当前slot设置为-1,等待下次读取修改
 }
 
 //Insert 将当前slot指向下一个可用的槽位EMPTY,如果当前区块slot已经用完了，就会开辟一个新的区块继续读取数据

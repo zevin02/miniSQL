@@ -92,7 +92,7 @@ func (t *Transaction) Recover() error {
 }
 
 func (t *Transaction) Pin(blk *fm.BlockId) error {
-	err := t.myBuffers.Pin(blk)
+	err := t.myBuffers.Pin(blk) //todo 可以在这个地方传入他的事务ID
 	if err != nil {
 		return err
 	} //调用pin进行管理,

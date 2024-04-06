@@ -20,7 +20,7 @@ const (
 	USED                   //描述当前slot已经被使用了
 )
 
-//RecordPage 使用recordManager来管理记录在页面中的存储
+//RecordPage 使用recordManager来管理记录在页面中的存储,对一条一条记录进行读取
 type RecordPage struct {
 	tx     *tx.Transaction //使用一个事务，保证数据的原子性和可恢复性
 	blk    *fm.BlockId     //管理的是哪个页面
