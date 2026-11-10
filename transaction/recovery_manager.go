@@ -147,14 +147,16 @@ func (r *RecoveryManager) doRecover() {
 		rec := iter.Next()
 		logRecord := r.CreateRecord(rec)
 		//由于是从最新的日志开始进行迭代，所以肯定事务肯定是先找到commit或者rollabck，其他的就是没完成
+		if logRecord.Op() == CHECKPOINT {
+			return
+		}
 
 		if logRecord.Op() == COMMIT || logRecord.Op() == ROLLBACK {
 			//记录当前有commit或者有rollback的日志（表示当前的日志已经完成了操作不需要进行恢复，要门已经commit提交刷新到磁盘，要门回滚恢复到了原来的状态，同样也刷新到磁盘了）
 			finishedTxs[logRecord.TxNumber()] = true
 		}
 
-		exitst, ok := finishedTxs[uint64(r.txNum)]
-		if !ok || !exitst {
+		if !finishedTxs[logRecord.TxNumber()] {
 			//走到这里这个说明他只有start，而没有commit和rollback，有头无尾的，就需要进行一个undo
 			//把数据进行恢复
 			logRecord.Undo(r.tx)
